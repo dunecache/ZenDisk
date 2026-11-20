@@ -13,7 +13,7 @@ The spec's Part X build order covers the **product surface** only. Tauri has no 
 | Track | Phases | Definition of done |
 | --- | --- | --- |
 | Product surface | 0–5 | Layout, tokens, both themes, interactive flows, and loading/empty/error/partial states. Data may be mock-backed. A checked screen here means **UI-complete**, not shippable. |
-| Native integration | 6 | A typed operation in `src/renderer/lib/native/client.ts`, a least-privilege grant in `src-tauri/capabilities/default.json`, validated inputs/outputs, progress/cancellation where relevant, persistence, and no screen claiming a capability it lacks. |
+| Native integration | 6 | A typed operation in `src/renderer/lib/native/client.ts`, a least-privilege grant in `src-tauri/capabilities/default.json`, validated inputs/outputs, progress/cancellation where relevant, persistence, a recorded verification level (`implemented` → `CI-verified` → `hardware-verified`), and no screen claiming a capability it lacks. |
 | Release readiness | 7 | Signed installer, updater channel, clean Windows 10/11 install/upgrade/uninstall, and the spec's Part IX checklist verified against real data. |
 
 **Sequencing:** finish Phase 4 → Phase 5 UI polish → Phase 6 native → Phase 7 release. Phase 6 introduces real permission, partial-scan, and hardware states, so those are re-audited there. If Windows 10/11 hardware is available earlier, Phase 6 can move ahead of Phase 5; it would then require a second, real-data polish pass.
@@ -26,6 +26,7 @@ The spec's Part X build order covers the **product surface** only. Tauri has no 
 - [x] Signing key generated in a temporary CI workflow, stored as `TAURI_SIGNING_PRIVATE_KEY`, keygen runs deleted
 - [x] Windows CI rewritten: signed NSIS `setup.exe` + `.sig` + `latest.json` published to the rolling `windows-latest` pre-release
 - [x] Docs aligned; local `pnpm typecheck`, PR CI, and main CI all green
+- [ ] Rotate the updater key to a password-protected key and set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (before the first real install — Phase 7)
 - [ ] Windows 10/11 install and OTA smoke test on real hardware (Phase 7 — **blocked**: no Windows hardware available; CI compiles and publishes but cannot exercise the installed app)
 
 ---
@@ -130,6 +131,7 @@ Visual, interaction, and accessibility polish. These checks do not require real 
 - [ ] Loading, empty, error, permission, drive-unavailable states on every screen
 - [ ] Responsive window behavior (1440+ / 1100–1439 / 900–1099)
 - [ ] Micro-interactions using spec durations (120/100/140/180/180/200ms)
+- [ ] Self-host fonts via `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500), `font-display: swap`, `system-ui` fallback; confirm CSP needs no change and tabular numbers use Inter's `tnum`
 - [ ] Quality checklist sign-off from `Spec.md` Part IX (visual/UX items)
 
 Windows installer and OTA verification have moved to Phase 7.
@@ -148,11 +150,19 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 - [ ] Path-safety rules: canonicalize paths, reject traversal outside the selected root, do not follow reparse points without explicit opt-in
 - [ ] Capability grants added per command as it lands, never pre-emptively
 - [ ] Rule: unsupported attributes or operations render as "Not available" rather than a fabricated value
+- [ ] Platform logic in pure Rust modules (WMI/PowerShell and registry parsing, hashing) with recorded fixtures, so it can be unit-tested off Windows
+- [ ] `zendisk --smoke` mode: run real commands against a temp directory and print a JSON report; a `windows-latest` job also performs a silent NSIS install, launch, and uninstall
+- [ ] Record a verification level for every native item: `implemented` → `CI-verified` → `hardware-verified`
+- [ ] SQLite for operation and run history, shared by the UI and headless runs (WAL mode + busy timeout)
+- [ ] Performance rules: Rust aggregates; progress at most every ~200 ms; depth-limited tree plus top-N lists, never per-file IPC events
+- [ ] Walk with a bounded pool `min(cores, 8)`, cancel via `AtomicBool`, and use directory-entry metadata to avoid an extra stat per file
+- [ ] Duplicate pipeline: group by size → partial hash of head and tail → full BLAKE3 only on collisions; 2–4 hashers, 1 on HDDs
+- [ ] Benchmark target: 500k files scanned without dropped UI frames
 
 ### 6.1 Disk and filesystem
 
 - [ ] `disk.list` — drives, capacity, free space, filesystem, removable/network flags
-- [ ] `disk.analyze` — async directory walk with progress, cancellation, partial results, and size aggregation by folder and file type
+- [ ] `disk.analyze` — async directory walk that aggregates in Rust, emits progress at most every ~200 ms, and returns a depth-limited tree plus top-N lists with partial-result and cancellation support
 - [ ] `files.list` / `files.inspect` — directory listing, metadata, reveal/open through the scoped shell grant
 - [ ] Swap Overview and Disk Analysis hooks from `mock-*` to `nativeApi`
 
@@ -166,7 +176,7 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 ### 6.3 Organization and duplicates
 
 - [ ] `organizer.preview` / `organizer.execute` with conflict detection, dry-run, and undo where the filesystem allows
-- [ ] `duplicates.scan` with streaming hashes, progress, and cancellation; never auto-delete on hash match
+- [ ] `duplicates.scan` using the size → head/tail partial hash → BLAKE3 pipeline, with progress and cancellation; never auto-delete on hash match
 - [ ] Reuse the 6.2 quarantine for duplicate removal
 
 ### 6.4 Maintenance
@@ -178,8 +188,11 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 
 ### 6.5 Automation and reports
 
-- [ ] `automation.*` — CRUD, enable/disable, run-now, next-run; decide between Windows Task Scheduler (survives exit) and an in-app scheduler (only while open) and document the limitation
-- [ ] `automation.history` — persisted runs with outcomes and errors
+- [ ] `automation.*` — CRUD, enable/disable, run-now, next-run; per-user Windows Task Scheduler tasks in a `\ZenDisk\` folder invoke `zendisk.exe --run-task <id>` headless with no admin rights
+- [ ] Treat Task Scheduler as the source of truth for the UI: read real state, disable via `/Change /DISABLE`, and remove `\ZenDisk\` tasks in the uninstaller
+- [ ] Enable "start when available" to catch up missed runs; document that tasks only run while the user is logged on
+- [ ] Scheduled actions may only quarantine items, never permanently delete
+- [ ] `automation.history` — runs with outcomes and errors persisted in SQLite (not the `store` plugin), because headless runs and the open app can write concurrently
 - [ ] `operations.history` + `reports.summary` — real aggregates for the Reports screen
 
 ### 6.6 Settings, persistence, and updates
@@ -189,30 +202,39 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 - [ ] Updates section: current version, "Check for updates", download/install progress, relaunch prompt
 - [ ] Verify preference and history migration across an app update
 
-### 6.7 Verification on Windows 10/11
+### 6.7 Verification levels
+
+CI-verified (automated, `windows-latest` VM):
+
+- [ ] `zendisk --smoke` green for every command against a temp directory
+- [ ] Silent NSIS install, launch, and uninstall complete without errors
+- [ ] Unit tests for the pure platform-parsing modules run against recorded fixtures
+
+Hardware-verified (manual, Windows 10/11 with real drives):
 
 - [ ] Every screen exercised against a real drive, including permission-denied and drive-unavailable paths
-- [ ] Long scans confirmed non-blocking, with cancel and elapsed time
+- [ ] Long scans confirmed non-blocking, with cancel and elapsed time; 500k-file benchmark meets the no-dropped-frames target
 - [ ] Operation history and undo verified across an app restart
+- [ ] SMART and permission paths verified; the "Not available" fallback confirmed where a drive reports nothing
 - [ ] Update check, download, signature verification, install, and relaunch verified against a newer CI build
 
 ### Native capability matrix
 
-Proposed command names; update the state column as work lands. `stub` = facade exists but throws, `new` = not yet in the facade.
+Proposed command names; update the state column as work lands. States: `stub` (facade exists but throws) → `implemented` → `CI-verified` → `hardware-verified`; `new` = not yet in the facade.
 
 | Surface | Command(s) | Mechanism / grant | State |
 | --- | --- | --- | --- |
-| App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Real |
-| Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Facade real; UI missing (6.6) |
+| App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Implemented; not hardware-verified |
+| Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Implemented; UI missing (6.6); not hardware-verified |
 | Overview drives | `disk.list` | Custom command + path scope | Stub |
 | Disk analysis | `disk.analyze` | Custom command + progress events | Stub |
 | Files | `files.list`, `files.inspect` | Custom command + `fs`/`shell` scope | Stub |
 | Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + Recycle Bin/quarantine | Stub |
 | Organization | `organizer.preview`, `organizer.execute` | Custom command + `fs` scope | Stub |
 | Duplicates | `duplicates.scan` | Custom command, streaming hash | Stub |
-| Activity history | `operations.history` | Custom command + `store` | Stub |
+| Activity history | `operations.history` | Custom command + SQLite | Stub |
 | Maintenance | `system.metrics`, `startup.list`, `startup.set`, `apps.list`, `disk.health` | Custom commands | New (6.4) |
-| Automation | `automation.*`, `automation.history` | Custom commands + scheduler + `store` | New (6.5) |
+| Automation | `automation.*`, `automation.history` | Custom commands + Task Scheduler + SQLite | New (6.5) |
 | Reports | `reports.summary` | Custom command over persisted history | New (6.5) |
 | License/help | — | `shell:allow-open` for external links | UI only |
 
@@ -220,11 +242,13 @@ Proposed command names; update the state column as work lands. `stub` = facade e
 
 ## Phase 7 — Release readiness
 
-- [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified
-- [ ] Updater end to end: detect newer build, download, signature check, install, relaunch
+- [ ] Rotate to a password-protected updater key **before the first real install**: set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and verify a signed build
+- [ ] Back up the updater private key and password in a password manager plus one offline copy
+- [ ] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key
+- [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified; the uninstaller removes `\ZenDisk\` scheduled tasks
+- [ ] Updater end to end (manual, real hardware): detect newer build, download, signature check, install, relaunch
 - [ ] Decide and document whether uninstall removes preferences, history, and quarantined files
 - [ ] Authenticode signing, or an explicit and documented SmartScreen warning
-- [ ] Revisit the updater key password and rotation procedure
 - [ ] Stable vs. beta channel decision (the rolling `windows-latest` tag is effectively a beta channel today)
 - [ ] Re-audit permission, drive-unavailable, partial-scan, and error states from Phase 5 against real data
 - [ ] Part IX quality checklist signed off against real data
@@ -234,16 +258,18 @@ Proposed command names; update the state column as work lands. `stub` = facade e
 
 ## Technical risks / open questions
 
+All previously open items are resolved below; #6 remains a known limitation rather than a blocker.
+
 1. **Drive capacity & health data.** ~~Decide before Phase 3/4.~~ Resolved: custom Rust commands in Phase 6.1/6.4. Phases 3–5 use isolated mock data behind TanStack Query; unsupported attributes render as "Not available", never a fabricated value.
 2. **Startup/applications inventory.** Resolved: platform-specific custom Rust commands in Phase 6.4, with an explicit supported/unsupported state per field.
 3. ~~**`nativeAllowList` scope.**~~ Resolved: replaced wildcards with an explicit method list in the old `neutralino.config.json`, then superseded by Tauri capability grants in `src-tauri/capabilities/default.json`. Keep each grant least-privilege and add scopes only when a native operation lands.
 4. ~~**shadcn/ui dependency.**~~ Resolved: adopted Radix/CVA in Phase 1; all visual values remain ZenDisk tokens.
-5. **Local fonts.** Still open: package Inter and IBM Plex Mono files (or self-host) rather than relying on network fonts; CSP currently allows only `data:`/`self` font sources.
-6. **Native API behavior in browser preview.** `pnpm dev:web` has no Tauri IPC; use typed facade stubs/mocks for UI development rather than calling `@tauri-apps/api` or plugin packages. `useAppVersion` falls back to `0.0.0` there.
-7. **Unverifiable native work from Termux.** CI can compile Rust but cannot exercise the installed app. Phase 6 work is not product-complete until it passes on Windows 10/11.
-8. **Scan and hashing performance.** Directory walks and duplicate hashing can saturate I/O. Mitigate with streaming, bounded concurrency, progress, and cancellation; benchmark on a real drive.
-9. **Scheduler reliability.** An in-app scheduler only runs while ZenDisk is open; Windows Task Scheduler survives exit but is harder to manage and audit. Decide in 6.5 and document the limitation in the UI.
-10. **Updater key custody.** Losing `TAURI_SIGNING_PRIVATE_KEY` permanently blocks updates for installed clients. The empty-password key is acceptable only while the repository stays private; revisit in Phase 7.
+5. **Local fonts.** Resolved: bundle `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500) as same-origin woff2 assets, so the CSP stays `self`/`data:`. Use `font-display: swap` with a `system-ui` fallback; Inter's `tnum` feature covers tabular numbers. Phase 5.
+6. **Native API behavior in browser preview.** Known limitation: `pnpm dev:web` has no Tauri IPC; use typed facade stubs/mocks for UI development rather than calling `@tauri-apps/api` or plugin packages. `useAppVersion` falls back to `0.0.0` there.
+7. **Unverifiable native work from Termux.** Resolved by two verification levels. Pure Rust modules are tested with recorded PowerShell/WMI JSON and registry fixtures; a `--smoke` mode runs the real commands against a temp directory on `windows-latest`, together with a silent NSIS install, launch, and uninstall. Items move from `implemented` to `CI-verified`, then `hardware-verified`. Only OTA and SMART/permission paths stay manual because runners are VMs.
+8. **Scan and hashing performance.** Resolved by design: Rust aggregates and emits progress at most every ~200 ms as a depth-limited tree plus top-N lists, never per-file events. Walk with a pool of `min(cores, 8)`, cancel via `AtomicBool`, and read directory-entry metadata to avoid extra stats. Duplicates: size groups → head/tail partial hash → full BLAKE3 on collisions, with 2–4 hashers (1 on HDDs). Target: 500k files with no dropped UI frames.
+9. **Scheduler reliability.** Resolved: per-user Windows Task Scheduler tasks in `\ZenDisk\` run `zendisk.exe --run-task <id>` headless without admin rights. The Scheduler is the UI's source of truth, disable uses `/Change /DISABLE`, and the uninstaller removes the tasks. "Start when available" catches missed runs; tasks only run while the user is logged on. Scheduled actions may only quarantine, never permanently delete. Run history lives in SQLite because headless and UI runs can write concurrently.
+10. **Updater key custody.** Resolved: rotate now to a password-protected key, before any real installs pin the public key. Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and back up the key and password in a password manager plus one offline copy. A later rotation needs a bridge release signed by the old key; document that procedure in Phase 7. GitHub secrets cannot be read back.
 
 ---
 
@@ -274,7 +300,7 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Windows 7 dropped; Windows 10/11 are the supported targets. | Rust's `*-pc-windows-msvc` targets require Windows 10+, and current WebView2 docs list Win10/11 only. Tauri's Win7 documentation is stale. |
 | 2026-11-20 | Ship **NSIS `setup.exe` only** — no portable exe and no MSI. | Single artifact supports the updater and WebView2 bootstrap install. |
 | 2026-11-20 | `webviewInstallMode: embedBootstrapper` with `silent: true`; NSIS `installMode: currentUser`. | Fewer install failures than `downloadBootstrapper`; no admin rights required. |
-| 2026-11-20 | Updater signing key generated in a temporary `ubuntu-latest` workflow (artifact storage quota was hit, so keys were printed to a private run log) and imported via `gh secret set TAURI_SIGNING_PRIVATE_KEY`. All keygen runs deleted. Public key committed in `tauri.conf.json`. | Tauri requires minisign signatures; the secret must never be committed. The key has an empty password — acceptable for this private repo, to be revisited if the repo is published. |
+| 2026-11-20 | Updater signing key generated in a temporary `ubuntu-latest` workflow (artifact storage quota was hit, so keys were printed to a private run log) and imported via `gh secret set TAURI_SIGNING_PRIVATE_KEY`. All keygen runs deleted. Public key committed in `tauri.conf.json`. | Tauri requires minisign signatures; the secret must never be committed. The key was initially created with an empty password; superseded by the password-protected rotation decision below. |
 | 2026-11-20 | CI injects `0.1.<github.run_number>` on main and `0.0.<run_number>` on PRs via `--config`; `createUpdaterArtifacts` is disabled on PRs. | Updater ignores equal versions; a static `0.0.0` would never update. PRs have no signing secret. |
 | 2026-11-20 | Published assets: NSIS `setup.exe`, `.sig`, and `latest.json`, uploaded in that order to the rolling `windows-latest` pre-release; old `zendisk-release.zip` removed. | Avoids quota-limited Actions artifacts; the manifest is last so clients never see a signature for a missing asset. |
 | 2026-11-20 | Built `/maintenance` on mock data. Unsupported readings (e.g. temperature) display "Not available" with an explanation instead of a placeholder number; disk health cards list the data source and limitations. Startup changes are disabled in the preview with a note that native control is not connected. | Spec requires never presenting unsupported metrics as measurements and being transparent about capability. |
@@ -284,3 +310,9 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Sequencing is Phase 4 → Phase 5 UI polish → Phase 6 native → Phase 7 release. Phase 6 re-audits permission, partial-scan, and hardware states. | Visual/a11y polish does not need real data; native work cannot be verified locally. If Windows hardware becomes available sooner, Phase 6 may move ahead of Phase 5 with a second polish pass. |
 | 2026-11-20 | Settings gains an **Updates** section (current version, check, install, relaunch) in Phase 6.6. | The updater exists in the runtime but postdates the spec's Settings section list, so this is a deliberate addition rather than a spec requirement. |
 | 2026-11-20 | Windows install and OTA verification moved from Phase 5 to Phase 7 and marked blocked on hardware. | CI compiles and publishes but cannot exercise an installed app; claiming Phase 5 complete without it would overstate readiness. |
+| 2026-11-20 | Self-host fonts from npm: `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, 400/500), `font-display: swap`, `system-ui` fallback. Add the packages and lockfile in Phase 5. | Same-origin woff2 keeps the CSP at `self`/`data:` with no network fonts; Inter's `tnum` satisfies the tabular-numbers rule. |
+| 2026-11-20 | Native work has two verification levels: `CI-verified` (pure modules with recorded fixtures, plus `--smoke` and silent NSIS install/launch/uninstall on `windows-latest`) and `hardware-verified` (human on Windows 10/11). Only OTA and SMART/permission paths stay manual. | CI can prove most behavior without overstating readiness; VM runners cannot exercise real SMART data or the interactive installer UX. |
+| 2026-11-20 | Scan/hash design: Rust aggregates, progress every ~200 ms, depth-limited tree + top-N, no per-file IPC; bounded walk pool `min(cores, 8)`, `AtomicBool` cancel, directory-entry metadata; duplicates size → head/tail partial hash → BLAKE3, 2–4 hashers (1 on HDD). Benchmark target: 500k files with no dropped UI frames. | IPC volume, not CPU, is the renderer bottleneck; aggregating in Rust keeps progress meaningful and the UI responsive. |
+| 2026-11-20 | Automation uses per-user Windows Task Scheduler tasks in `\ZenDisk\`, invoking `zendisk.exe --run-task <id>` headless. Scheduler is the source of truth; disable via `/Change /DISABLE`; uninstaller removes tasks; "start when available"; runs only while logged on; scheduled actions quarantine only; history in SQLite. | Survives app exit without admin rights and matches the recoverability rule. SQLite handles concurrent headless and UI writes, which the `store` plugin does not. |
+| 2026-11-20 | Rotate the updater key to a password-protected key now, before any real installs; add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the public key, back up key and password offline, and document bridge-release rotation. | Installed clients pin the public key, so rotating later needs a bridge release. No installs exist yet, so this is the cheapest moment. Phase 7 docs. |
+| 2026-11-20 | Browser preview remains a known limitation: `pnpm dev:web` has no Tauri IPC, keeps the `0.0.0` version fallback, and uses facade mocks. | Preserves fast UI iteration without pretending native operations work in a browser. |

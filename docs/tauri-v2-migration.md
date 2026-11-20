@@ -235,6 +235,10 @@ rm -rf "$TMPDIR/zendisk-keys"
 The keypair is generated with an empty password (`--ci`); only the private key
 goes to the secret, the public key is committed. Note the trade-off in ROADMAP.
 
+> **Update (2026-11-20):** the key will be rotated to a password-protected key
+> before the first real install, with `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and a
+> bridge-release procedure documented in Phase 7 of `ROADMAP.md`.
+
 ### 5b. Updater config
 
 - Add `tauri-plugin-updater` + `tauri-plugin-process` (Rust + npm).
