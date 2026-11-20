@@ -4,6 +4,7 @@ import { PlaceholderScreen } from "./PlaceholderScreen";
 import { OverviewScreen } from "@/features/overview";
 import { DiskAnalysisScreen } from "@/features/disk-analysis";
 import { CleanupScreen } from "@/features/cleanup";
+import { DuplicatesScreen } from "@/features/duplicates";
 import { defaultRoute } from "@/components/navigation";
 
 const screens = [
@@ -29,8 +30,9 @@ export function AppRoutes() {
         <Route path="/overview" element={<OverviewScreen />} />
         <Route path="/disk-analysis" element={<DiskAnalysisScreen />} />
         <Route path="/cleanup" element={<CleanupScreen />} />
+        <Route path="/duplicates" element={<DuplicatesScreen />} />
         {screens
-          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup"].includes(screen.path))
+          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup", "/duplicates"].includes(screen.path))
           .map((screen) => (
             <Route
               key={screen.path}

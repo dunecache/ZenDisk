@@ -1,2 +1,1 @@
-// Feature: duplicates — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./DuplicatesScreen";

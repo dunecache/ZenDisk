@@ -76,7 +76,7 @@ Goal: a working shell with the core interaction primitives.
 - [x] `/disk-analysis` — drive selector, capacity summary, Treemap with drill-down/breadcrumbs, file-type breakdown, largest files/folders, scan states, filters (mock-backed)
 - [x] `/cleanup` — tabs, category selection, review of exact files, warnings, explicit deletion confirmation, summary. Records operation history. Custom/Advanced tabs are marked as later iterations.
 - [ ] `/organization` — Rules / Templates / Preview / History, split-panel rule builder, preview table with conflicts
-- [ ] `/duplicates` — Exact / Similar Names / Images / Media tabs, grouped results, hash details, manual selection, quarantine
+- [x] `/duplicates` — tabs, grouped results, hash details, manual selection, recoverable quarantine. Never auto-deletes on hash match.
 
 **Exit criteria:** full navigation between screens; quick actions route correctly; no screen implies all identified files are safe; every destructive path has preview + confirmation + history entry.
 
