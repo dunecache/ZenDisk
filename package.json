@@ -1,0 +1,19 @@
+{
+  "name": "zendisk-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ZenDisk - calm, capable desktop storage management workspace",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @zendisk/desktop dev",
+    "dev:web": "pnpm --filter @zendisk/desktop dev:web",
+    "build": "pnpm -r build",
+    "build:app": "pnpm --filter @zendisk/desktop build:app",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean"
+  },
+  "license": "UNLICENSED"
+}

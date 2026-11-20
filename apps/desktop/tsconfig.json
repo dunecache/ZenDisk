@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/*"],
+      "@zendisk/shared": ["../../packages/shared/src/index.ts"],
+      "@zendisk/shared/*": ["../../packages/shared/src/*"],
+      "@zendisk/ui": ["../../packages/ui/src/index.ts"],
+      "@zendisk/ui/*": ["../../packages/ui/src/*"]
+    },
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "vite.config.ts"]
+}

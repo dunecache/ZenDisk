@@ -1,0 +1,88 @@
+/**
+ * ZenDisk design tokens — source of truth.
+ * Semantic names only; components must never hardcode color values.
+ */
+
+:root {
+  /* Color — warm light (Kanso Matcha) */
+  --background: #f7f8f4;
+  --foreground: #263b34;
+  --surface: #ffffff;
+  --surface-secondary: #eef1ea;
+  --surface-tertiary: #e7ebe3;
+  --primary: #276653;
+  --primary-hover: #205544;
+  --primary-foreground: #ffffff;
+  --secondary: #66877a;
+  --accent: #a7c4a0;
+  --muted: #77847d;
+  --muted-background: #f0f2ec;
+  --border: #e3e8df;
+  --input: #e3e8df;
+  --focus: #789c85;
+  --success: #4f8067;
+  --warning: #b58b4b;
+  --danger: #b66d65;
+  --info: #668aa0;
+  --secondary-foreground: #ffffff;
+  --danger-foreground: #ffffff;
+
+  /* Data visualization palette */
+  --chart-documents: #a7bca0;
+  --chart-images: #83a89a;
+  --chart-videos: #8da4be;
+  --chart-audio: #b4a1c5;
+  --chart-archives: #c5ab78;
+  --chart-applications: #9dad8b;
+  --chart-system: #8c9891;
+  --chart-other: #c2c8bf;
+
+  /* Spacing (4px base unit) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Layout */
+  --page-padding: 28px;
+  --sidebar-width: 220px;
+  --sidebar-width-collapsed: 64px;
+  --header-height: 60px;
+  --row-height-compact: 36px;
+  --row-height-comfortable: 44px;
+  --control-height: 36px;
+  --control-height-xs: 28px;
+  --control-height-sm: 32px;
+  --control-height-lg: 40px;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Elevation — borders first; shadows only for floating surfaces */
+  --shadow-dropdown: 0 4px 12px rgb(38 59 52 / 12%);
+  --shadow-dialog: 0 12px 32px rgb(38 59 52 / 18%);
+  --shadow-panel: 0 8px 24px rgb(38 59 52 / 14%);
+  --shadow-drag: 0 6px 18px rgb(38 59 52 / 20%);
+  --overlay: rgb(38 59 52 / 40%);
+
+  /* Motion */
+  --duration-hover: 120ms;
+  --duration-press: 100ms;
+  --duration-dropdown: 140ms;
+  --duration-dialog: 180ms;
+  --duration-sidebar: 180ms;
+  --duration-panel: 200ms;
+  --ease-enter: ease-out;
+  --ease-layout: ease-in-out;
+}

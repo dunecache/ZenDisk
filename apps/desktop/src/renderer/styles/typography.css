@@ -1,0 +1,44 @@
+/**
+ * Typography primitives. Interface: Inter. Technical info: IBM Plex Mono.
+ * Package local font files with the app where possible.
+ */
+
+:root {
+  --font-interface: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --text-display: 32px;
+  --text-h1: 24px;
+  --text-h2: 18px;
+  --text-h3: 15px;
+  --text-body: 13px;
+  --text-small: 12px;
+  --text-caption: 11px;
+  --text-metric: 28px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+}
+
+body {
+  font-family: var(--font-interface);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--foreground);
+}
+
+.text-display { font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--line-height-tight); }
+.text-h1      { font-size: var(--text-h1);      font-weight: var(--weight-semibold); line-height: var(--line-height-tight); }
+.text-h2      { font-size: var(--text-h2);      font-weight: var(--weight-semibold); line-height: var(--line-height-tight); }
+.text-h3      { font-size: var(--text-h3);      font-weight: var(--weight-semibold); line-height: var(--line-height-tight); }
+.text-body    { font-size: var(--text-body); }
+.text-small   { font-size: var(--text-small); }
+.text-caption { font-size: var(--text-caption); }
+.text-metric  { font-size: var(--text-metric); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.text-medium  { font-weight: var(--weight-medium); }
+.text-mono    { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }

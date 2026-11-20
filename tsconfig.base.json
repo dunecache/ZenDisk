@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@zendisk/shared": ["packages/shared/src/index.ts"],
+      "@zendisk/shared/*": ["packages/shared/src/*"],
+      "@zendisk/core": ["packages/core/src/index.ts"],
+      "@zendisk/core/*": ["packages/core/src/*"],
+      "@zendisk/ui": ["packages/ui/src/index.ts"],
+      "@zendisk/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

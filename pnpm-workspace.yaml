@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 12 blocks dependency lifecycle scripts by default. These native builds
+# are denied on Termux: esbuild's android-arm64 binary fails to link and the
+# node-gyp-based optional deps have no compiler. None are needed for tsc.
+allowBuilds:
+  bufferutil: false
+  es5-ext: false
+  esbuild: false
+  utf-8-validate: false

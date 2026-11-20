@@ -1,0 +1,55 @@
+/**
+ * Theme variants. Light values are defined in tokens.css (:root);
+ * the dark theme overrides semantic tokens on the `.dark` class.
+ * Both themes must remain equally polished.
+ */
+
+.dark {
+  --background: #171d19;
+  --foreground: #e8eee8;
+  --surface: #202923;
+  --surface-secondary: #28342c;
+  --surface-tertiary: #303d34;
+  --primary: #8fbca4;
+  --primary-hover: #a1cbb3;
+  --primary-foreground: #19271f;
+  --secondary: #709985;
+  --accent: #a7c4a0;
+  --muted: #a1ada3;
+  --muted-background: #29342d;
+  --border: #354139;
+  --input: #354139;
+  --focus: #9ac5a5;
+  --success: #8fbca4;
+  --warning: #d3ad72;
+  --danger: #d48a80;
+  --info: #88acc1;
+  --secondary-foreground: #19271f;
+  --danger-foreground: #19271f;
+
+  /* Data colors stay distinguishable in both themes */
+  --chart-documents: #a7bca0;
+  --chart-images: #83a89a;
+  --chart-videos: #8da4be;
+  --chart-audio: #b4a1c5;
+  --chart-archives: #c5ab78;
+  --chart-applications: #9dad8b;
+  --chart-system: #8c9891;
+  --chart-other: #c2c8bf;
+
+  --shadow-dropdown: 0 4px 12px rgb(0 0 0 / 32%);
+  --shadow-dialog: 0 12px 32px rgb(0 0 0 / 45%);
+  --shadow-panel: 0 8px 24px rgb(0 0 0 / 38%);
+  --shadow-drag: 0 6px 18px rgb(0 0 0 / 50%);
+  --overlay: rgb(0 0 0 / 55%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,24 @@
+/**
+ * Shared component-level token compositions.
+ * Keep these minimal — most styling lives with each component and consumes
+ * the semantic tokens directly.
+ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
