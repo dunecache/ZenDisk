@@ -1,0 +1,30 @@
+name: Generate updater signing key (temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keygen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate password-protected keypair
+        env:
+          KEYGEN_PASSWORD: ${{ secrets.KEYGEN_PASSWORD }}
+        run: |
+          test -n "$KEYGEN_PASSWORD" || { echo "KEYGEN_PASSWORD secret is missing"; exit 1; }
+          npx --yes @tauri-apps/cli@2.12.6 signer generate --ci \
+            -w "$RUNNER_TEMP/zendisk.key" \
+            -p "$KEYGEN_PASSWORD" \
+            -f
+
+      - name: Upload keypair
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-keypair
+          path: |
+            ${{ runner.temp }}/zendisk.key
+            ${{ runner.temp }}/zendisk.key.pub
+          retention-days: 1
