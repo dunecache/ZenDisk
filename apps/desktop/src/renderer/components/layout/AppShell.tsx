@@ -1,7 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
-import { Sidebar } from "@/components/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { GlobalSearchDialog, Sidebar } from "@/components/navigation";
 import { useGlobalShortcuts } from "@/hooks";
 import { ToastViewport } from "@/components/data-display";
+import { useSidebarStore } from "@/stores";
 import { StatusBar } from "./StatusBar";
 import type { BackgroundTask } from "./StatusBar";
 
@@ -24,10 +27,40 @@ export function AppShell({
   selectedDrive,
   version,
 }: AppShellProps) {
-  // Navigation shortcuts (Ctrl+1/2/,) are active now; search/refresh/delete
-  // handlers are supplied by features as they land. Escape is handled natively
-  // by Radix dialogs and menus.
-  useGlobalShortcuts();
+  const queryClient = useQueryClient();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const setCollapsed = useSidebarStore((state) => state.setCollapsed);
+  const wasNarrow = useRef(false);
+
+  // Desktop-first: below 1100px the rail collapses to preserve content width.
+  useEffect(() => {
+    const onResize = () => {
+      const narrow = window.innerWidth < 1100;
+      if (narrow !== wasNarrow.current) {
+        wasNarrow.current = narrow;
+        setCollapsed(narrow);
+      }
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [setCollapsed]);
+
+  const focusViewSearch = () => {
+    const input = document.querySelector<HTMLInputElement>('main input[type="search"]');
+    if (!input) return;
+    input.focus();
+    input.select();
+  };
+
+  // Escape is handled natively by Radix dialogs and menus. Delete dispatches a
+  // contextual event that destructive views can register against.
+  useGlobalShortcuts({
+    onGlobalSearch: () => setSearchOpen(true),
+    onViewSearch: focusViewSearch,
+    onRefresh: () => void queryClient.invalidateQueries(),
+    onDelete: () => window.dispatchEvent(new CustomEvent("zendisk:delete")),
+  });
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
@@ -44,6 +77,7 @@ export function AppShell({
         />
       </div>
       <ToastViewport />
+      <GlobalSearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }

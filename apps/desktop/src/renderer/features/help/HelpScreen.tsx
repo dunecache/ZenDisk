@@ -80,7 +80,7 @@ export function HelpScreen() {
                 description="Try a different word or browse all topics."
               />
             ) : (
-              <div className="grid gap-[var(--space-3)] lg:grid-cols-2">
+              <div className="grid gap-[var(--space-3)] desktop:grid-cols-2">
                 {filtered.map((topic) => (
                   <Card key={topic.id} className="flex flex-col gap-[var(--space-2)]">
                     <h3 className="text-[length:var(--text-h3)] font-semibold">{topic.question}</h3>

@@ -40,6 +40,10 @@ export function useGlobalShortcuts(handlers: GlobalShortcutHandlers = {}) {
     const onKeyDown = (event: KeyboardEvent) => {
       const mod = event.ctrlKey || event.metaKey;
 
+      // Spec §34: shortcuts must not override standard text-editing behavior
+      // when an input has focus. Escape remains with Radix.
+      if (isTypingTarget(event.target)) return;
+
       if (mod && event.key.toLowerCase() === "k") {
         event.preventDefault();
         handlers.onGlobalSearch?.();
@@ -51,8 +55,6 @@ export function useGlobalShortcuts(handlers: GlobalShortcutHandlers = {}) {
         navigate("/settings");
         return;
       }
-
-      if (isTypingTarget(event.target)) return;
 
       if (mod && NAV_SHORTCUTS[event.key]) {
         event.preventDefault();

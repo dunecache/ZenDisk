@@ -67,7 +67,7 @@ export function DiskAnalysisScreen() {
           ) : (
             <>
               <Section title="Capacity summary">
-                <div className="grid gap-[var(--space-4)] sm:grid-cols-3">
+                <div className="grid gap-[var(--space-4)] desktop:grid-cols-3">
                   <MetricCard label="Capacity" value={formatBytes(data.capacity)} />
                   <MetricCard label="Available" value={formatBytes(data.free)} />
                   <MetricCard
@@ -98,7 +98,7 @@ export function DiskAnalysisScreen() {
                 <TreemapView tree={data.tree} />
               </Section>
 
-              <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
+              <div className="grid gap-[var(--space-4)] desktop:grid-cols-2">
                 <FileTypeBreakdown
                   stats={data.typeBreakdown}
                   totalBytes={data.scannedBytes}

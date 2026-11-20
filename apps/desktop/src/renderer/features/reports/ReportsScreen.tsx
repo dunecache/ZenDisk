@@ -62,7 +62,7 @@ function StateGate({
   }
   if (loading) {
     return (
-      <div className="grid gap-[var(--space-4)] sm:grid-cols-3">
+      <div className="grid gap-[var(--space-4)] desktop:grid-cols-3">
         <SkeletonCard />
         <SkeletonCard />
         <SkeletonCard />
@@ -146,7 +146,7 @@ export function ReportsScreen() {
             emptyHeading="No report data"
             emptyDescription="Reports will appear after the first operations are recorded."
           >
-            <div className="grid gap-[var(--space-4)] sm:grid-cols-3">
+            <div className="grid gap-[var(--space-4)] desktop:grid-cols-3">
               <MetricCard
                 label="Recovered"
                 value={formatBytes(metrics?.recoveredBytes ?? 0)}

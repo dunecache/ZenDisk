@@ -4,7 +4,7 @@
  */
 
 :root {
-  --font-interface: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-interface: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 
   --text-display: 32px;

@@ -1,3 +1,6 @@
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./themes.css";
@@ -29,6 +32,10 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-info: var(--info);
   --color-overlay: var(--overlay);
+
+  /* Desktop-first bands from Spec.md Part VIII (900–1099, 1100–1439, 1440+). */
+  --breakpoint-compact: 900px;
+  --breakpoint-desktop: 1100px;
 }
 
 *,

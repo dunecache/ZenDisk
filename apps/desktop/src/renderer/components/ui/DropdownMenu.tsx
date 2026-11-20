@@ -14,7 +14,7 @@ export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 export const menuContentClassName =
   "z-50 min-w-[10rem] overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface p-[var(--space-1)] text-foreground shadow-[var(--shadow-dropdown)]";
 export const menuItemClassName =
-  "relative flex cursor-default select-none items-center gap-[var(--space-2)] rounded-[var(--radius-xs)] px-[var(--space-2)] py-[var(--space-2)] text-[length:var(--text-body)] outline-none transition-colors duration-[var(--duration-hover)] focus:bg-surface-secondary data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "relative flex cursor-default select-none items-center gap-[var(--space-2)] rounded-[var(--radius-xs)] px-[var(--space-2)] py-[var(--space-2)] text-[length:var(--text-body)] transition-colors duration-[var(--duration-hover)] focus:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 export const menuLabelClassName =
   "px-[var(--space-2)] py-[var(--space-1)] text-[length:var(--text-small)] font-medium text-muted";
 export const menuSeparatorClassName =

@@ -26,7 +26,7 @@ export function LicenseScreen() {
       <PageContainer>
         {isError ? (
           <InlineAlert variant="danger" title="Could not load license information">
-            <button className="underline" onClick={() => void refetch()}>
+            <button className="rounded-[var(--radius-xs)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]" onClick={() => void refetch()}>
               Try again
             </button>
           </InlineAlert>

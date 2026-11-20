@@ -9,7 +9,7 @@ export interface DiskHealthListProps {
 
 export function DiskHealthList({ drives }: DiskHealthListProps) {
   return (
-    <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
+    <div className="grid gap-[var(--space-4)] desktop:grid-cols-2">
       {drives.map((drive) => {
         const unavailable = drive.attributes.filter((attribute) => !attribute.supported);
         return (

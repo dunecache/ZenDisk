@@ -13,17 +13,17 @@
   --primary: #276653;
   --primary-hover: #205544;
   --primary-foreground: #ffffff;
-  --secondary: #66877a;
+  --secondary: #557565;
   --accent: #a7c4a0;
-  --muted: #77847d;
+  --muted: #5f6d65;
   --muted-background: #f0f2ec;
   --border: #e3e8df;
   --input: #e3e8df;
   --focus: #789c85;
-  --success: #4f8067;
-  --warning: #b58b4b;
-  --danger: #b66d65;
-  --info: #668aa0;
+  --success: #3c6b53;
+  --warning: #8a6428;
+  --danger: #9a4f48;
+  --info: #4d6f83;
   --secondary-foreground: #ffffff;
   --danger-foreground: #ffffff;
 

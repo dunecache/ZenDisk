@@ -60,7 +60,7 @@ export function SettingsScreen() {
           {isError ? (
             <InlineAlert variant="danger" title="Could not load settings">
               Preferences could not be read.{" "}
-              <button className="underline" onClick={() => void refetch()}>
+              <button className="rounded-[var(--radius-xs)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]" onClick={() => void refetch()}>
                 Try again
               </button>
             </InlineAlert>
@@ -78,7 +78,7 @@ export function SettingsScreen() {
           ) : sections.length === 0 ? (
             <EmptyState heading="No settings available" description="No preference groups were found." />
           ) : (
-            <div className="grid gap-[var(--space-6)] lg:grid-cols-[220px_1fr]">
+            <div className="grid gap-[var(--space-6)] desktop:grid-cols-[220px_1fr]">
               <nav aria-label="Settings sections" className="flex flex-col gap-[var(--space-2)]">
                 <SearchInput
                   value={query}

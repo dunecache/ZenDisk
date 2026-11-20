@@ -31,7 +31,7 @@ export function OverviewScreen() {
         {isError ? (
           <InlineAlert variant="danger" title="Could not load storage information">
             Check that the native service is available, then try again.
-            <button className="ml-[var(--space-2)] underline" onClick={() => void refetch()}>
+            <button className="ml-[var(--space-2)] rounded-[var(--radius-xs)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]" onClick={() => void refetch()}>
               Retry
             </button>
           </InlineAlert>

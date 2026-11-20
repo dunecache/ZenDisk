@@ -125,14 +125,14 @@ Goal: a working shell with the core interaction primitives.
 
 Visual, interaction, and accessibility polish. These checks do not require real data and are done before native integration. Permission, drive-unavailable, and partial-scan states are re-audited in Phase 6.7 against real hardware.
 
-- [ ] Dark theme audit (equal polish to light)
-- [ ] Keyboard shortcuts + focus management
-- [ ] Accessibility pass (contrast, screen readers, dialogs, reduced motion)
-- [ ] Loading, empty, error, permission, drive-unavailable states on every screen
-- [ ] Responsive window behavior (1440+ / 1100–1439 / 900–1099)
-- [ ] Micro-interactions using spec durations (120/100/140/180/180/200ms)
-- [ ] Self-host fonts via `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500), `font-display: swap`, `system-ui` fallback; confirm CSP needs no change and tabular numbers use Inter's `tnum`
-- [ ] Quality checklist sign-off from `Spec.md` Part IX (visual/UX items)
+- [ ] Dark theme audit (equal polish to light) — dark tokens already pass static contrast checks; visual review still pending
+- [x] Keyboard shortcuts + focus management — all Spec §34 shortcuts wired in `AppShell`; input-focus guard moved ahead of every handler; Ctrl+K opens a destination search dialog
+- [ ] Accessibility pass (contrast, screen readers, dialogs, reduced motion) — light-theme tokens darkened to AA, danger/error alerts now `role="alert"`, menu focus ring, labeled collapsed brand, focus rings on retry links; runtime screen-reader check pending
+- [ ] Loading, empty, error, permission, drive-unavailable states on every screen — Phase 4 screens complete; Phase 3 denied/partial states tracked in Verification follow-ups
+- [x] Responsive window behavior (1440+ / 1100–1439 / 900–1099) — `compact`/`desktop` breakpoints added and the sidebar auto-collapses below 1100px
+- [x] Micro-interactions using spec durations (120/100/140/180/180/200ms) — all transitions consume the existing motion tokens
+- [x] Self-host fonts via `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500), `font-display: swap`, `system-ui` fallback; CSP unchanged, tabular numbers use Inter via `font-variant-numeric`
+- [ ] Quality checklist sign-off from `Spec.md` Part IX (visual/UX items) — pending Phase 5 verifier
 
 Windows installer and OTA verification have moved to Phase 7.
 
@@ -359,3 +359,5 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Destructive-flow safety: duplicate selection now always keeps one copy per group; organization conflicts are excluded from the default selection, filtered on apply, and confirmed in a dialog; cleanup confirms a recoverable quarantine move instead of permanent deletion; cleanup mock file counts now match the files shown in review. | Adversarial review found pre-wired paths that could apply conflicts or quarantine every copy once native commands land. Spec rule 7 and the recoverability decision require these guards. |
 | 2026-11-20 | Publishing steps now require `github.ref == 'refs/heads/main'` in addition to "not a pull request", so a manual dispatch from another ref cannot rewrite `latest.json`. | CI reviewer found that an unrestricted `workflow_dispatch` could publish an update that installed clients would reject. |
 | 2026-11-20 | Specialist findings are recorded in a dedicated "Verification follow-ups" section with Phase 5/6/7 owners rather than silently deferred. | Keeps the phase gate honest: Phase 4 passed senior verification, and known a11y/performance/release gaps remain visible. |
+| 2026-11-20 | Phase 5 fonts: added `@fontsource-variable/inter@^5.3.0` and `@fontsource/ibm-plex-mono@^5.3.0` to `apps/desktop/package.json` and the pnpm lockfile; imported their CSS in `globals.css` and switched `--font-interface` to `Inter Variable`. | Same-origin woff2 keeps the CSP at `self`/`data:`; `font-display: swap` comes from the packages and the system-ui fallback remains. |
+| 2026-11-20 | Light-theme token adjustments: `--muted`, `--secondary`, `--success`, `--warning`, `--danger`, `--info` darkened for WCAG AA; error feedback uses `role="alert"`; menu items and retry links gained visible focus rings; collapsed brand link got an accessible name. | Design auditor measured sub-4.5:1 contrast and missing focus cues; tokens are the only place colors may change, and both themes keep the same token names. |

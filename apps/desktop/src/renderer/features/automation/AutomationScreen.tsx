@@ -207,7 +207,7 @@ export function AutomationScreen() {
                       placeholder="Filter tasks or targets"
                     />
                   </FilterBar>
-                  <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
+                  <div className="grid gap-[var(--space-4)] desktop:grid-cols-2">
                     {filteredTasks.map((task) => (
                       <TaskCard key={task.id} task={task} onToggle={toggleTask} onEdit={openEdit} />
                     ))}

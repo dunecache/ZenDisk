@@ -30,7 +30,7 @@ function ToastRow({ item }: { item: ToastItem }) {
 
   return (
     <div
-      role="status"
+      role={item.variant === "error" ? "alert" : "status"}
       className={cn(
         "pointer-events-auto flex w-80 items-start gap-[var(--space-3)] rounded-[var(--radius-md)] border border-border bg-surface p-[var(--space-4)] shadow-[var(--shadow-panel)]",
       )}

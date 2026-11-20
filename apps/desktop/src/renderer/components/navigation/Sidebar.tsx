@@ -83,7 +83,7 @@ export function Sidebar({ homeTo = "/overview" }: SidebarProps) {
           collapsed && "justify-center px-0",
         )}
       >
-        <NavLink to={homeTo} className="flex items-center gap-[var(--space-3)]">
+        <NavLink to={homeTo} aria-label="ZenDisk home" className="flex items-center gap-[var(--space-3)]">
           <span
             aria-hidden="true"
             className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-md)] bg-primary text-primary-foreground text-[length:var(--text-h3)] font-semibold"

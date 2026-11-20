@@ -36,7 +36,10 @@ export function InlineAlert({ variant = "info", title, children, className }: In
   const key = (variant ?? "info") as keyof typeof icons;
   const Icon = icons[key];
   return (
-    <div role="status" className={cn(alertVariants({ variant }), className)}>
+    <div
+      role={variant === "danger" ? "alert" : "status"}
+      className={cn(alertVariants({ variant }), className)}
+    >
       <Icon size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
       <div className="flex flex-col gap-[var(--space-1)] text-foreground">
         {title && <span className="font-medium">{title}</span>}
