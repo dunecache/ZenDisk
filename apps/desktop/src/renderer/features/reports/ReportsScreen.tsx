@@ -12,6 +12,7 @@ import {
 } from "@/components/data-display";
 import { formatBytes } from "@/lib/formatters";
 import { useReports } from "@/hooks";
+import { usePreferencesStore } from "@/stores";
 import { RecentActivity } from "@/features/overview/components/activity/RecentActivity";
 import { RecommendationList } from "@/features/overview/components/recommendations/RecommendationList";
 import { StorageGrowthChart } from "./components/charts/StorageGrowthChart";
@@ -84,6 +85,7 @@ function StateGate({
 
 export function ReportsScreen() {
   const { data, isLoading, isError, refetch } = useReports();
+  const showSampleNotice = usePreferencesStore((state) => state.showSampleDataNotice);
   const [range, setRange] = useState<ReportRange>("30");
 
   const loading = isLoading || !data;
@@ -122,10 +124,12 @@ export function ReportsScreen() {
       />
       <PageContainer>
         <div className="flex flex-col gap-[var(--space-6)]">
-          <InlineAlert variant="info" title="Sample data">
-            Report figures are illustrative until operation history is collected
-            natively. {data?.collectedAt ? <DateDisplay value={data.collectedAt} /> : null}
-          </InlineAlert>
+          {showSampleNotice && (
+            <InlineAlert variant="info" title="Sample data">
+              Report figures are illustrative until operation history is collected
+              natively. {data?.collectedAt ? <DateDisplay value={data.collectedAt} /> : null}
+            </InlineAlert>
+          )}
 
           {denied && (
             <InlineAlert variant="danger" title="History access denied">
@@ -171,7 +175,7 @@ export function ReportsScreen() {
               <RecentActivity events={activity} />
             </Section>
 
-            <Section title="Recommendations" description="Based on the selected period.">
+            <Section title="Recommendations" description="Suggestions based on recent activity.">
               <RecommendationList recommendations={data?.recommendations ?? []} />
             </Section>
           </StateGate>

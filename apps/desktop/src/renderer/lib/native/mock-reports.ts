@@ -3,6 +3,7 @@
  * native history is a one-line change in `hooks/data/useReports.ts`.
  * Never import this from features directly.
  */
+import { mockAccess } from "./mock-access";
 import type { ReportsData, StoragePoint } from "@/types";
 
 const GB = 1024 ** 3;
@@ -16,7 +17,7 @@ const storage: StoragePoint[] = Array.from({ length: 90 }, (_, index) => {
 });
 
 export const reportsData: ReportsData = {
-  access: "granted",
+  access: mockAccess(),
   collectedAt: new Date().toISOString(),
   metrics: {
     "7": {

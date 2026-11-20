@@ -58,7 +58,7 @@ The Tauri CLI has no Android/Termux binary. On those hosts use `pnpm dev:web` an
 ## Tauri v2 integration
 
 - `src-tauri/tauri.conf.json` is the runtime source of truth: identifier `io.zendisk.app`, window size, CSP, NSIS bundle, updater endpoints.
-- `src-tauri/capabilities/default.json` grants the minimum plugin permissions (`core`, `fs`, `shell` open-only, `dialog`, `os`, `store`, `updater`, `process`).
+- `src-tauri/capabilities/default.json` grants only what the facade uses today: `core`, `updater`, and `process`. Further grants are added with the Phase 6 command that needs them.
 - Vite writes to `apps/desktop/dist`; Tauri embeds that directory into the binary at compile time. There is no sidecar resource file.
 - Native access is funnelled through the typed facade in `src/renderer/lib/native/`. Components never call Tauri APIs directly.
 - `src-tauri/icons/` contains generated PNGs and `icon.ico`, derived from the brand mark in `src/renderer/assets/icon.png`.

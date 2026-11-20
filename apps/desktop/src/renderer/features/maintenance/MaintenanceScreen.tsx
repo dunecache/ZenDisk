@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { EmptyState, InlineAlert, SkeletonCard } from "@/components/data-display";
 import { useMaintenance } from "@/hooks";
+import { usePreferencesStore } from "@/stores";
 import {
   ApplicationsTable,
   DiskHealthList,
@@ -60,6 +61,7 @@ function StateGate({
 
 export function MaintenanceScreen() {
   const { data, isLoading, isError, refetch } = useMaintenance();
+  const showSampleNotice = usePreferencesStore((state) => state.showSampleDataNotice);
   const [tab, setTab] = useState<MaintenanceTab>("overview");
 
   const loading = isLoading || !data;
@@ -74,10 +76,12 @@ export function MaintenanceScreen() {
       />
       <PageContainer>
         <div className="flex flex-col gap-[var(--space-6)]">
-          <InlineAlert variant="info" title="Sample data">
-            Native system access is not connected yet. Values are illustrative;
-            metrics the system cannot report are marked as not available.
-          </InlineAlert>
+          {showSampleNotice && (
+            <InlineAlert variant="info" title="Sample data">
+              Native system access is not connected yet. Values are illustrative;
+              metrics the system cannot report are marked as not available.
+            </InlineAlert>
+          )}
 
           <Tabs value={tab} onValueChange={(value) => setTab(value as MaintenanceTab)}>
             <TabsList>

@@ -3,10 +3,11 @@
  * storage is a one-line change in `hooks/data/useSettings.ts`.
  * Never import this from features directly.
  */
+import { mockAccess } from "./mock-access";
 import type { SettingsData } from "@/types";
 
 export const settingsData: SettingsData = {
-  access: "granted",
+  access: mockAccess(),
   currentVersion: "0.0.0",
   updatesEnabled: false,
   sections: [

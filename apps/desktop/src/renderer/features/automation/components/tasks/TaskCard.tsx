@@ -13,13 +13,11 @@ const actionLabel: Record<AutomationAction, string> = {
 
 export interface TaskCardProps {
   task: AutomationTask;
-  /** Disabled when Task Scheduler access has been denied. */
-  disabled?: boolean;
   onToggle: (id: string, enabled: boolean) => void;
   onEdit: (task: AutomationTask) => void;
 }
 
-export function TaskCard({ task, disabled = false, onToggle, onEdit }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onEdit }: TaskCardProps) {
   return (
     <Card className="flex flex-col gap-[var(--space-4)]">
       <div className="flex items-start justify-between gap-[var(--space-3)]">
@@ -36,7 +34,6 @@ export function TaskCard({ task, disabled = false, onToggle, onEdit }: TaskCardP
           />
           <Switch
             checked={task.enabled}
-            disabled={disabled}
             aria-label={`${task.enabled ? "Disable" : "Enable"} ${task.name}`}
             onCheckedChange={(checked) => onToggle(task.id, checked)}
           />
@@ -67,7 +64,7 @@ export function TaskCard({ task, disabled = false, onToggle, onEdit }: TaskCardP
             <Play size={14} aria-hidden="true" />
             Run now
           </Button>
-          <Button variant="secondary" size="sm" disabled={disabled} onClick={() => onEdit(task)}>
+          <Button variant="secondary" size="sm" onClick={() => onEdit(task)}>
             Edit
           </Button>
         </div>

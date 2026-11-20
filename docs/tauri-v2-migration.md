@@ -133,6 +133,9 @@ Root `package.json`: no script changes needed (`pnpm dev` / `build:app` delegate
   - `identifier: "default"`, `windows: ["main"]`
   - `permissions: ["core:default", "fs:default", "shell:allow-open",
     "dialog:default", "os:default", "store:default"]`
+  - Final state: only `core:default`, `updater:default`, and `process:default`
+    are granted. The other permissions above are added with the Phase 6
+    command that needs them (see `ROADMAP.md`).
   - `updater:default` + `process:default` added in Step 5
 - `icons/`
   - generate from `src/renderer/assets/icon.png` (256x256):
@@ -179,8 +182,9 @@ Root `package.json`: no script changes needed (`pnpm dev` / `build:app` delegate
 - Register in Rust: `fs::init()`, `shell::init()`, `dialog::init()`, `os::init()`,
   `store::Builder::default().build()`.
 - No plugin imports in components/features; only the facade may use them later.
-- Capability grants are least-privilege: `fs:default` is app-scoped; broad disk
-  paths will be added only when the custom Rust commands land.
+- Capability grants are least-privilege. Only `core`, `updater`, and `process`
+  are granted today; `fs`, `shell`, `dialog`, `os`, and `store` are added only
+  with the Phase 6 command that uses them.
 - `shell` gets `allow-open` only. Command execution goes through an explicitly
   scoped `shell:allow-execute` (or a custom Rust command) when needed.
 

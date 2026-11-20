@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
@@ -9,8 +9,8 @@ import {
   SearchInput,
   SkeletonCard,
 } from "@/components/data-display";
-import { toast, useOperationHistory } from "@/stores";
-import { useAutomation } from "@/hooks";
+import { toast, usePreferencesStore } from "@/stores";
+import { useAutomation, useAutomationActions } from "@/hooks";
 import { RunHistoryTable, TaskCard, TaskEditorDialog } from "./components";
 import type { AutomationTask } from "@/types";
 
@@ -81,19 +81,15 @@ function StateGate({
 
 export function AutomationScreen() {
   const { data, isLoading, isError, refetch } = useAutomation();
+  const actions = useAutomationActions();
+  const showSampleNotice = usePreferencesStore((state) => state.showSampleDataNotice);
   const [tab, setTab] = useState<AutomationTab>("tasks");
-  const [tasks, setTasks] = useState<AutomationTask[] | null>(null);
   const [taskQuery, setTaskQuery] = useState("");
   const [runQuery, setRunQuery] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<AutomationTask | null>(null);
-  const addOperation = useOperationHistory((state) => state.add);
 
-  useEffect(() => {
-    if (data && tasks === null) setTasks(data.tasks);
-  }, [data, tasks]);
-
-  const currentTasks = tasks ?? data?.tasks ?? [];
+  const currentTasks = data?.tasks ?? [];
   const runs = data?.runs ?? [];
   const denied = data?.access === "denied";
   const loading = isLoading || !data;
@@ -116,26 +112,10 @@ export function AutomationScreen() {
     (run) => run.result === "partial" || run.result === "failed",
   );
 
-  const record = (title: string) => {
-    addOperation({
-      id: crypto.randomUUID(),
-      kind: "automation",
-      title,
-      at: new Date().toISOString(),
-      completed: 1,
-      failed: 0,
-      skipped: 0,
-      total: 1,
-      reclaimedBytes: 0,
-      recoverable: true,
-    });
-  };
-
   const toggleTask = (id: string, enabled: boolean) => {
     const task = currentTasks.find((item) => item.id === id);
     if (!task) return;
-    setTasks(currentTasks.map((item) => (item.id === id ? { ...item, enabled } : item)));
-    record(`${enabled ? "Enabled" : "Disabled"} ${task.name}`);
+    actions.mutate({ type: "toggle", id, enabled });
     toast.info(
       enabled ? "Task enabled (preview)" : "Task disabled (preview)",
       "Native Task Scheduler control is not connected yet.",
@@ -144,15 +124,10 @@ export function AutomationScreen() {
 
   const saveTask = (task: AutomationTask) => {
     const isEdit = currentTasks.some((item) => item.id === task.id);
-    setTasks(
-      isEdit
-        ? currentTasks.map((item) => (item.id === task.id ? task : item))
-        : [...currentTasks, task],
-    );
-    record(`${isEdit ? "Updated" : "Created"} ${task.name}`);
+    actions.mutate({ type: "save", task });
     toast.success(
       isEdit ? "Task updated (preview)" : "Task created (preview)",
-      "Stored locally until native access is connected.",
+      "Stored in the preview until native access is connected.",
     );
   };
 
@@ -177,7 +152,7 @@ export function AutomationScreen() {
             <Button variant="outline" onClick={() => void refetch()}>
               Refresh
             </Button>
-            <Button disabled={denied || loading} onClick={openNew}>
+            <Button disabled={loading} onClick={openNew}>
               New task
             </Button>
           </>
@@ -185,16 +160,18 @@ export function AutomationScreen() {
       />
       <PageContainer>
         <div className="flex flex-col gap-[var(--space-6)]">
-          <InlineAlert variant="info" title="Sample data">
-            Scheduled tasks and runs are illustrative. Native Task Scheduler
-            control is not connected yet; edits stay in this preview.
-          </InlineAlert>
+          {showSampleNotice && (
+            <InlineAlert variant="info" title="Sample data">
+              Scheduled tasks and runs are illustrative. Native Task Scheduler
+              control is not connected yet; edits stay in this preview.
+            </InlineAlert>
+          )}
 
           {denied && (
             <InlineAlert variant="danger" title="Access to scheduled tasks was denied">
-              ZenDisk cannot change or read Windows tasks until access is
-              restored. Disabling a task is still always possible in Windows
-              Task Scheduler.
+              ZenDisk cannot read or change Windows tasks until access is
+              restored. You can still disable a task here: the request is kept
+              in this preview and is never lost.
             </InlineAlert>
           )}
 
@@ -234,13 +211,7 @@ export function AutomationScreen() {
                   </FilterBar>
                   <div className="grid gap-[var(--space-4)] lg:grid-cols-2">
                     {filteredTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        disabled={denied}
-                        onToggle={toggleTask}
-                        onEdit={openEdit}
-                      />
+                      <TaskCard key={task.id} task={task} onToggle={toggleTask} onEdit={openEdit} />
                     ))}
                   </div>
                 </Section>

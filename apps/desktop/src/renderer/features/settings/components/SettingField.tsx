@@ -13,9 +13,13 @@ export function SettingField({ label, description, htmlFor, control }: SettingFi
   return (
     <div className="flex items-start justify-between gap-[var(--space-6)] border-b border-border py-[var(--space-4)] last:border-0">
       <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
-        <label htmlFor={htmlFor} className="text-[length:var(--text-body)] font-medium">
-          {label}
-        </label>
+        {htmlFor ? (
+          <label htmlFor={htmlFor} className="text-[length:var(--text-body)] font-medium">
+            {label}
+          </label>
+        ) : (
+          <span className="text-[length:var(--text-body)] font-medium">{label}</span>
+        )}
         <p className="text-[length:var(--text-small)] text-muted">{description}</p>
       </div>
       <div className="shrink-0">{control}</div>

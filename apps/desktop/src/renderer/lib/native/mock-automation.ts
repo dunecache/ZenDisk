@@ -3,13 +3,18 @@
  * Task Scheduler commands is a one-line change in `hooks/data/useAutomation.ts`.
  * Never import this from features directly.
  */
-import type { AutomationData } from "@/types";
+import { mockAccess } from "./mock-access";
+import type { AutomationData, AutomationTask } from "@/types";
+
+export type AutomationTaskChange =
+  | { type: "save"; task: AutomationTask }
+  | { type: "toggle"; id: string; enabled: boolean };
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600_000).toISOString();
 const hoursAhead = (hours: number) => new Date(Date.now() + hours * 3600_000).toISOString();
 
 export const automationData: AutomationData = {
-  access: "granted",
+  access: mockAccess(),
   collectedAt: hoursAgo(1),
   tasks: [
     {
@@ -126,6 +131,18 @@ export const automationData: AutomationData = {
     },
   ],
 };
+
+/** Preview-only mutation of the in-memory mock, used by the automation hook. */
+export function applyTaskChange(change: AutomationTaskChange): void {
+  if (change.type === "toggle") {
+    const task = automationData.tasks.find((item) => item.id === change.id);
+    if (task) task.enabled = change.enabled;
+    return;
+  }
+  const index = automationData.tasks.findIndex((item) => item.id === change.task.id);
+  if (index >= 0) automationData.tasks[index] = change.task;
+  else automationData.tasks.push(change.task);
+}
 
 /** Simulated async fetch so loading/skeleton states are exercised in dev. */
 export function fetchAutomation(): Promise<AutomationData> {
