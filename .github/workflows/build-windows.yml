@@ -14,62 +14,101 @@ jobs:
   build-windows:
     runs-on: windows-latest
     permissions:
-      # Required to publish the packaged exe as a release asset.
+      # Required to publish the installer as a rolling pre-release asset.
       contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         # Version is read from the "packageManager" field in package.json.
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build renderer (Vite)
-        run: pnpm --filter @zendisk/desktop build
-
-      - name: Download Neutralino binaries
-        # `neu update` fetches the platform binaries into apps/desktop/bin.
-        # The client library is intentionally skipped (bundled via npm).
-        working-directory: apps/desktop
-        run: pnpm exec neu update --latest
-
-      - name: Package Neutralino app
-        working-directory: apps/desktop
-        run: pnpm exec neu build --release --clean
-
-      - name: Verify Windows executable
+      - name: Build Windows installer
         working-directory: apps/desktop
         shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if (-not (Test-Path "release/zendisk/zendisk-win_x64.exe")) {
-            throw "Windows executable was not produced"
+          $isPr = '${{ github.event_name }}' -eq 'pull_request'
+          $version = if ($isPr) { "0.0.${{ github.run_number }}" } else { "0.1.${{ github.run_number }}" }
+          @{
+            version = $version
+            bundle = @{ createUpdaterArtifacts = (-not $isPr) }
+          } | ConvertTo-Json -Depth 5 | Set-Content tauri.ci.json
+          # `--config` is deep-merged, so bundle.targets/icon are preserved.
+          # PRs skip updater artifacts because signing secrets are unavailable.
+          pnpm exec tauri build --config tauri.ci.json
+
+      - name: Verify Windows installer
+        shell: pwsh
+        run: |
+          $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
+          $setup = Get-ChildItem -Path $bundle -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $setup) { throw "NSIS installer was not produced" }
+          if ('${{ github.event_name }}' -ne 'pull_request' -and -not (Test-Path "$($setup.FullName).sig")) {
+            throw "Updater signature was not produced"
           }
-          Get-ChildItem -Recurse release | Select-Object FullName, Length
+          Get-ChildItem -Recurse $bundle | Select-Object FullName, Length
+
+      - name: Generate update manifest
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
+          $setup = Get-ChildItem -Path $bundle -Filter "*-setup.exe" | Select-Object -First 1
+          $version = (Get-Content apps/desktop/tauri.ci.json -Raw | ConvertFrom-Json).version
+          $signature = (Get-Content "$($setup.FullName).sig" -Raw).Trim()
+          $assetUrl = "https://github.com/${{ github.repository }}/releases/download/windows-latest/$($setup.Name)"
+          @{
+            version = $version
+            notes = "Automated Windows build from ${{ github.sha }}"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = $signature
+                url = $assetUrl
+              }
+            }
+          } | ConvertTo-Json -Depth 10 | Set-Content latest.json -Encoding utf8
+          Get-Content latest.json
 
       # Actions artifact storage is quota-limited on this account, so publish
-      # the package as a rolling pre-release asset instead (separate storage).
+      # the installer as a rolling pre-release asset instead.
       - name: Publish Windows build
         if: github.event_name != 'pull_request'
-        working-directory: apps/desktop
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "windows-latest"
-          $zip = "release/zendisk-release.zip"
+          $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
+          $setup = Get-ChildItem -Path $bundle -Filter "*-setup.exe" | Select-Object -First 1
           gh release view $tag 2>$null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --prerelease --title "Windows build (latest)" --notes "Automated Windows build from main." $zip
-          } else {
-            gh release upload $tag $zip --clobber
+            gh release create $tag --prerelease --title "Windows build (latest)" --notes "Automated Windows build from main."
           }
+          # Order matters: the manifest is uploaded last so clients never see
+          # a signature pointing at an asset that is not yet uploaded.
+          gh release upload $tag $setup.FullName --clobber
+          gh release upload $tag "$($setup.FullName).sig" --clobber
+          gh release upload $tag latest.json --clobber
+          gh release delete-asset $tag zendisk-release.zip --yes 2>$null
