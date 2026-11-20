@@ -1,17 +1,17 @@
 # ZenDisk
 
-ZenDisk is a desktop storage management and PC maintenance workspace built with **Neutralinojs + React + TypeScript**. This repository is a pnpm monorepo containing the Neutralinojs desktop application and shared packages.
+ZenDisk is a desktop storage management and PC maintenance workspace built with **Tauri v2 + React + TypeScript**. This repository is a pnpm monorepo containing the Tauri desktop application and shared packages.
 
-> **Status:** scaffolding only — folder structures, packages, and configuration are in place. Feature implementation is pending.
+> **Status:** Phases 0–3 complete (design system, shared components, desktop shell, five main screens on mock data). Phase 4 screens are next.
 
 ## Layout
 
 ```
 ZenDisk/
 ├── apps/
-│   └── desktop/                  # Neutralinojs app (@zendisk/desktop)
-│       ├── neutralino.config.json
-│       ├── vite.config.ts        # Vite root = src/renderer, output = build/
+│   └── desktop/                  # Tauri app (@zendisk/desktop)
+│       ├── src-tauri/            # Rust crate, tauri.conf.json, capabilities, icons
+│       ├── vite.config.ts        # Vite root = src/renderer, output = dist/
 │       └── src/renderer/         # React UI
 │           ├── app/              # App root, router, providers
 │           ├── components/       # Shared components by responsibility
@@ -26,6 +26,8 @@ ZenDisk/
 │   ├── shared/                   # Types, API contracts, constants (@zendisk/shared)
 │   ├── core/                     # Reserved domain services (@zendisk/core)
 │   └── ui/                       # Design-system primitives (@zendisk/ui)
+├── docs/
+│   └── tauri-v2-migration.md     # Runtime migration plan and decisions
 ├── package.json
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
@@ -35,38 +37,37 @@ ZenDisk/
 
 | Package | Description |
 | --- | --- |
-| `@zendisk/desktop` | Neutralinojs app config plus the React renderer with all screens/features. |
+| `@zendisk/desktop` | Tauri app config plus the React renderer with all screens/features. |
 | `@zendisk/shared` | Framework-agnostic types, native API contracts, constants, formatters, validators. |
-| `@zendisk/core` | Reserved for domain logic (the Neutralino build uses the renderer's native facade). |
+| `@zendisk/core` | Reserved for domain logic (the Tauri build uses the renderer's native facade). |
 | `@zendisk/ui` | Reusable design-system component primitives and foundation styles. |
 
 ## Getting started
 
 ```bash
 pnpm install
-pnpm dev        # neu run — starts Vite HMR + the Neutralino window
-pnpm build      # vite build -> apps/desktop/build/ (web resources)
-pnpm build:app  # neu update + neu build --release -> apps/desktop/release/
+pnpm dev        # tauri dev — starts Vite HMR + the Tauri window
+pnpm dev:web    # Vite dev server only (browser preview, no native API)
+pnpm build      # vite build -> apps/desktop/dist
+pnpm build:app  # tauri build -> NSIS installer (Windows only)
 pnpm typecheck  # typecheck all workspace packages
 ```
 
-To open developer tools during development:
+The Tauri CLI has no Android/Termux binary. On those hosts use `pnpm dev:web` and `pnpm typecheck`; Rust builds happen in CI.
 
-```bash
-pnpm --filter @zendisk/desktop neu:run -- --window-enable-inspector
-```
+## Tauri v2 integration
 
-## Neutralinojs integration
-
-- `neutralino.config.json` sets `documentRoot`/`cli.resourcesPath` to `/build/` (Vite output) and `cli.distributionPath` to `/release/` (packaged app). `cli.frontendLibrary` makes `neu run` drive the Vite dev server at `http://localhost:5173`.
-- `injectGlobals: true` lets `@neutralinojs/lib` read the injected `NL_*` globals; `init()` is called in `src/renderer/main.tsx`.
-- `cli.clientLibrary` is intentionally absent — the client is bundled from the npm package `@neutralinojs/lib` rather than downloaded from GitHub releases.
-- Native access is allowlisted via `nativeAllowList` and funnelled through the typed facade in `src/renderer/lib/native/`. Components never call `@neutralinojs/lib` directly.
-- Because `injectGlobals: true` is enabled, no `__neutralino_globals.js` script tag is needed in `index.html` (it would otherwise be required for non-injected modes).
+- `src-tauri/tauri.conf.json` is the runtime source of truth: identifier `io.zendisk.app`, window size, CSP, NSIS bundle, updater endpoints.
+- `src-tauri/capabilities/default.json` grants the minimum plugin permissions (`core`, `fs`, `shell` open-only, `dialog`, `os`, `store`, `updater`, `process`).
+- Vite writes to `apps/desktop/dist`; Tauri embeds that directory into the binary at compile time. There is no sidecar resource file.
+- Native access is funnelled through the typed facade in `src/renderer/lib/native/`. Components never call Tauri APIs directly.
+- `src-tauri/icons/` contains generated PNGs and `icon.ico`, derived from the brand mark in `src/renderer/assets/icon.png`.
+- Signed OTA updates use `latest.json` published on the rolling `windows-latest` pre-release; the public key is in `tauri.conf.json`, the private key only in the `TAURI_SIGNING_PRIVATE_KEY` repository secret.
+- Windows 10/11 are supported. Windows 7 is not achievable with current Rust/WebView2 — see `docs/tauri-v2-migration.md`.
 
 ## CI
 
-`.github/workflows/build-windows.yml` builds the Windows package on push/PR to `main` and on manual dispatch. It installs with pnpm, runs the Vite renderer build, downloads the Neutralino binaries with `neu update --latest`, packages with `neu build --release --clean`, verifies `zendisk-win_x64.exe` exists, and publishes `zendisk-release.zip` to the rolling `windows-latest` pre-release (Actions artifact storage is quota-limited on this account). PRs build but skip publishing.
+`.github/workflows/build-windows.yml` builds on push/PR to `main` and on manual dispatch. It installs dependencies, builds with `pnpm tauri build`, and produces a signed NSIS `setup.exe` plus `.sig`. On `main` it generates `latest.json` and publishes all three to the rolling `windows-latest` pre-release (Actions artifact storage is quota-limited on this account). PRs build but skip publishing and updater artifacts.
 
 ## Design reference
 

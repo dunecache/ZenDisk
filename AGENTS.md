@@ -9,26 +9,29 @@ Instructions for any developer or coding agent working in this repository. Read 
 | `Spec.md` | Design system, UX, screens, interactions, and acceptance criteria. Authoritative for all UI decisions. |
 | `ROADMAP.md` | Implementation phases, current status, and definition of done. |
 | `README.md` | Setup, commands, and high-level architecture. |
-| `apps/desktop/neutralino.config.json` | Runtime configuration and native API allowlist. |
+| `apps/desktop/src-tauri/tauri.conf.json` | Tauri runtime configuration, bundle settings, updater endpoints. |
+| `apps/desktop/src-tauri/capabilities/default.json` | Native command and plugin permission grants (least privilege). |
 | `apps/desktop/src/renderer/styles/tokens.css` | Semantic design tokens (the only place colors are defined). |
 
 If a document conflicts with the code, update the document or the code deliberately — never leave both silently disagreeing.
 
 ## Runtime correction to the spec
 
-The original specification names **Electron** as the desktop platform. ZenDisk's desktop shell is now **Neutralinojs** (`@neutralinojs/lib` + `@neutralinojs/neu`). Everything in `Spec.md` about design, layout, components, behavior, and quality still applies. Only the "Electron boundary" concept (§32) is superseded: there is no main/preload process. The equivalent boundary is the typed facade at `apps/desktop/src/renderer/lib/native/`.
+The original specification names **Electron** as the desktop platform. ZenDisk's desktop shell is now **Tauri v2** (`@tauri-apps/api` + `@tauri-apps/cli` + a Rust crate in `apps/desktop/src-tauri/`). Everything in `Spec.md` about design, layout, components, behavior, and quality still applies. Only the "Electron boundary" concept (§32) is superseded: there is no main/preload process. The equivalent boundary is the typed facade at `apps/desktop/src/renderer/lib/native/`, backed by Tauri commands and plugin permissions.
 
-Never reintroduce Electron, `main/`, `preload/`, or `electron-vite`.
+Never reintroduce Electron, `main/`, `preload/`, `electron-vite`, or Neutralinojs.
+
+Windows 10/11 are the supported desktop targets. Windows 7 is not achievable with this stack (Rust's MSVC targets and current WebView2 both require Windows 10+); see `docs/tauri-v2-migration.md`.
 
 ## Current state
 
-Scaffold only. Folders, packages, configs, and design tokens exist; feature components and screens are placeholders (`export {}`). Do not assume a component exists just because its folder does. Check before importing.
+Phases 0–3 are complete: design tokens, shared components, desktop shell, and the five main screens are implemented on mock data behind TanStack Query. Phase 4 screens are still placeholders. Check before importing a component — an existing folder does not guarantee an implementation.
 
 ## Repository layout
 
 ```
-apps/desktop/                     Neutralinojs app + React renderer
-  neutralino.config.json          documentRoot, nativeAllowList, frontendLibrary
+apps/desktop/                     Tauri app + React renderer
+  src-tauri/                      Rust crate, tauri.conf.json, capabilities, icons
   vite.config.ts                  root: src/renderer, out: dist/
   src/renderer/
     app/                          App.tsx, router.tsx, providers/
@@ -55,7 +58,7 @@ apps/desktop/                     Neutralinojs app + React renderer
                                   components.css, globals.css, fonts/
     types/                        domain/, api/, native/
 
-Empty subfolders contain `.gitkeep` placeholders. No components are implemented yet.
+Empty subfolders contain `.gitkeep` placeholders; most Phase 3 components are implemented, Phase 4 folders are not.
 packages/shared/                  Framework-agnostic types, API contracts, constants
 packages/core/                    Reserved domain services (unused by renderer)
 packages/ui/                      Reusable design-system primitives
@@ -65,18 +68,18 @@ packages/ui/                      Reusable design-system primitives
 
 ```bash
 pnpm install          # install workspace dependencies
-pnpm dev              # neu run: Vite HMR + Neutralino window
+pnpm dev              # tauri dev: Vite HMR + Tauri window
 pnpm dev:web          # Vite dev server only (browser preview, no native API)
 pnpm build            # vite build -> apps/desktop/dist
-pnpm build:app        # neu build --release -> binaries
+pnpm build:app        # tauri build -> NSIS installer (Windows)
 pnpm typecheck        # typecheck all packages
 ```
 
-Dependencies are not installed in the scaffold. Do not add, remove, or upgrade a dependency without updating the relevant `package.json` and noting it in `ROADMAP.md`.
+Do not add, remove, or upgrade a dependency without updating the relevant `package.json`, the lockfile, and noting it in `ROADMAP.md`. Tauri CLI binaries are only available on desktop hosts; on Termux use `pnpm dev:web` and `pnpm typecheck` (CI performs Rust builds).
 
 ## Non-negotiable rules
 
-1. **Native access goes through one boundary.** Components and features must never import `@neutralinojs/lib` directly. Add a typed, validated method to `src/renderer/lib/native/client.ts` instead. Keep `nativeAllowList` in `neutralino.config.json` at least privilege.
+1. **Native access goes through one boundary.** Components and features must never import `@tauri-apps/api` or `@tauri-apps/plugin-*` directly. Add a typed, validated method to `src/renderer/lib/native/client.ts` instead. Keep grants in `src-tauri/capabilities/default.json` at least privilege.
 2. **No hardcoded colors.** Use CSS variables from `tokens.css` / `themes.css`. Never introduce a new color without adding a semantic token in both themes.
 3. **No inline styles for design values.** Spacing, radius, typography, motion, and elevation come from tokens. Inline styles are acceptable only for genuinely dynamic values (e.g., a measured width).
 4. **Both themes are mandatory.** Any new component must be reviewed in warm light and deep botanical dark.

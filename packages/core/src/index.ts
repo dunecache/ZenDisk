@@ -2,7 +2,7 @@
  * @zendisk/core
  *
  * Core business/domain services. Reserved for shared, framework-agnostic
- * logic; the Neutralinojs build reaches native APIs through the renderer's
+ * logic; the Tauri build reaches native APIs through the renderer's
  * `lib/native` facade instead. No UI code belongs here.
  */
 
