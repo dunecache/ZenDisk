@@ -72,7 +72,7 @@ Goal: a working shell with the core interaction primitives.
 
 ## Phase 3 — Main screens
 
-- [ ] `/overview` — StorageSummary, DriveCards, QuickActions, RecentActivity, Recommendations (dismissible, evidence-based)
+- [x] `/overview` — StorageSummary, DriveCards, QuickActions, RecentActivity, Recommendations (dismissible, evidence-based). Mock-backed via TanStack Query; loading/error/empty states included.
 - [ ] `/disk-analysis` — drive selector, capacity summary, Treemap, file-type breakdown, largest files/folders, scan states, filters
 - [ ] `/cleanup` — Quick Scan / Custom / Advanced tabs, category selection, review workflow, confirmation, summary
 - [ ] `/organization` — Rules / Templates / Preview / History, split-panel rule builder, preview table with conflicts
@@ -138,3 +138,4 @@ Goal: a working shell with the core interaction primitives.
 | 2026-11-20 | Added `useGlobalShortcuts` with input-focus guards; Escape left to Radix. Replaced wildcard `nativeAllowList` entries with an explicit method list. | Completes Phase 1 #7 and advances least-privilege native access. |
 | 2026-11-20 | Added `.github/workflows/build-windows.yml`. Separated Vite output (`build/`) from `neu build` output (`release/`) to avoid the CLI packaging its own output. `neu update --latest` added to `build:app`. | Enables Windows CI packaging; `dist/` was a latent conflict. |
 | 2026-11-20 | Phase 2 data components built sequentially with a typecheck + commit after each batch. Chose DataTable pagination over virtualization; Treemap drill-down/zoom delegated to the Disk Analysis screen. | Meets "pagination or virtualization" and keeps screen-specific navigation out of the shared widget. |
+| 2026-11-20 | Phase 3 uses isolated mock data behind TanStack Query hooks (`lib/native/mock-data.ts`, `hooks/data/`). Swapping to `nativeApi` is a one-line change per hook. `QueryProvider` added to App. | Enables fully interactive screens in the browser while native operations remain stubbed. |

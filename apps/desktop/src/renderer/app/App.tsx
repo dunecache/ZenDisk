@@ -1,5 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
-import { ThemeProvider } from "./providers";
+import { QueryProvider, ThemeProvider } from "./providers";
 import { AppRoutes } from "./router";
 import { TooltipProvider } from "@/components/ui";
 
@@ -10,11 +10,13 @@ import { TooltipProvider } from "@/components/ui";
 export function App() {
   return (
     <ThemeProvider>
-      <TooltipProvider delayDuration={400}>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
+      <QueryProvider>
+        <TooltipProvider delayDuration={400}>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryProvider>
     </ThemeProvider>
   );
 }

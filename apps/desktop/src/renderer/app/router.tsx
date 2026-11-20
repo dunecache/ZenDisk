@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout";
 import { PlaceholderScreen } from "./PlaceholderScreen";
+import { OverviewScreen } from "@/features/overview";
 import { defaultRoute } from "@/components/navigation";
 
 const screens = [
@@ -23,18 +24,21 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell version="0.0.0" />}>
         <Route index element={<Navigate to={defaultRoute} replace />} />
-        {screens.map((screen) => (
-          <Route
-            key={screen.path}
-            path={screen.path}
-            element={
-              <PlaceholderScreen
-                title={screen.title}
-                breadcrumbs={[{ label: "ZenDisk" }, { label: screen.title }]}
-              />
-            }
-          />
-        ))}
+        <Route path="/overview" element={<OverviewScreen />} />
+        {screens
+          .filter((screen) => screen.path !== "/overview")
+          .map((screen) => (
+            <Route
+              key={screen.path}
+              path={screen.path}
+              element={
+                <PlaceholderScreen
+                  title={screen.title}
+                  breadcrumbs={[{ label: "ZenDisk" }, { label: screen.title }]}
+                />
+              }
+            />
+          ))}
         <Route path="*" element={<Navigate to={defaultRoute} replace />} />
       </Route>
     </Routes>
