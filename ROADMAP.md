@@ -73,7 +73,7 @@ Goal: a working shell with the core interaction primitives.
 ## Phase 3 — Main screens
 
 - [x] `/overview` — StorageSummary, DriveCards, QuickActions, RecentActivity, Recommendations (dismissible, evidence-based). Mock-backed via TanStack Query; loading/error/empty states included.
-- [ ] `/disk-analysis` — drive selector, capacity summary, Treemap, file-type breakdown, largest files/folders, scan states, filters
+- [x] `/disk-analysis` — drive selector, capacity summary, Treemap with drill-down/breadcrumbs, file-type breakdown, largest files/folders, scan states, filters (mock-backed)
 - [ ] `/cleanup` — Quick Scan / Custom / Advanced tabs, category selection, review workflow, confirmation, summary
 - [ ] `/organization` — Rules / Templates / Preview / History, split-panel rule builder, preview table with conflicts
 - [ ] `/duplicates` — Exact / Similar Names / Images / Media tabs, grouped results, hash details, manual selection, quarantine

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout";
 import { PlaceholderScreen } from "./PlaceholderScreen";
 import { OverviewScreen } from "@/features/overview";
+import { DiskAnalysisScreen } from "@/features/disk-analysis";
 import { defaultRoute } from "@/components/navigation";
 
 const screens = [
@@ -25,8 +26,9 @@ export function AppRoutes() {
       <Route element={<AppShell version="0.0.0" />}>
         <Route index element={<Navigate to={defaultRoute} replace />} />
         <Route path="/overview" element={<OverviewScreen />} />
+        <Route path="/disk-analysis" element={<DiskAnalysisScreen />} />
         {screens
-          .filter((screen) => screen.path !== "/overview")
+          .filter((screen) => screen.path !== "/overview" && screen.path !== "/disk-analysis")
           .map((screen) => (
             <Route
               key={screen.path}

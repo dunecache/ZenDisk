@@ -25,7 +25,8 @@ import { cn } from "@/lib/utils";
 
 export interface DataTableProps<T> {
   data: T[];
-  columns: ColumnDef<T>[];
+  /** Value type is intentionally loose so typed accessor columns are accepted. */
+  columns: ColumnDef<T, any>[];
   getRowId?: (row: T, index: number) => string;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
@@ -57,8 +58,8 @@ export function DataTable<T>({
   const [internalSelection, setInternalSelection] = useState<Set<string>>(new Set());
   const selection = selectedIds ?? internalSelection;
 
-  const tableColumns = useMemo<ColumnDef<T>[]>(() => {
-    const selectColumn: ColumnDef<T> = {
+  const tableColumns = useMemo<ColumnDef<T, any>[]>(() => {
+    const selectColumn: ColumnDef<T, any> = {
       id: "__select",
       header: ({ table }) => (
         <Checkbox
