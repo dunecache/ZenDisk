@@ -10,6 +10,8 @@
  */
 
 import { getVersion } from "@tauri-apps/api/app";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 
 type Operation = (...args: never[]) => Promise<unknown>;
 
@@ -27,6 +29,16 @@ function notImplemented(name: string): Operation {
 export const nativeApi = {
   app: {
     version: () => getVersion(),
+  },
+  updates: {
+    check: () => check(),
+    install: async () => {
+      const update = await check();
+      if (!update) return false;
+      await update.downloadAndInstall();
+      await relaunch();
+      return true;
+    },
   },
   disk: {
     list: notImplemented("disk.list"),

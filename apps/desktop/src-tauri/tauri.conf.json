@@ -30,10 +30,22 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"],
     "windows": {
       "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
       "nsis": { "installMode": "currentUser" }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyNDE5Nzk3QkJDNkVFQzUKUldURjdzYTdsNWRCMHZnUVNyLzFWd1JrMXFCNEFWaEtOV2M2ZG96KzgxczNPbWNBT0NxWHVJUHIK",
+      "endpoints": [
+        "https://github.com/dunecache/ZenDisk/releases/download/windows-latest/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
