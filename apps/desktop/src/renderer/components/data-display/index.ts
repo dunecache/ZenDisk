@@ -1,2 +1,2 @@
-// components/data-display — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./metrics";
+export * from "./storage";
