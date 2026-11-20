@@ -66,7 +66,7 @@ pnpm --filter @zendisk/desktop neu:run -- --window-enable-inspector
 
 ## CI
 
-`.github/workflows/build-windows.yml` builds the Windows package on push/PR to `main` and on manual dispatch. It installs with pnpm, runs the Vite renderer build, downloads the Neutralino binaries with `neu update --latest`, packages with `neu build --release --clean`, and uploads `zendisk-windows` as an artifact.
+`.github/workflows/build-windows.yml` builds the Windows package on push/PR to `main` and on manual dispatch. It installs with pnpm, runs the Vite renderer build, downloads the Neutralino binaries with `neu update --latest`, packages with `neu build --release --clean`, verifies `zendisk-win_x64.exe` exists, and publishes `zendisk-release.zip` to the rolling `windows-latest` pre-release (Actions artifact storage is quota-limited on this account). PRs build but skip publishing.
 
 ## Design reference
 

@@ -13,6 +13,9 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    permissions:
+      # Required to publish the packaged exe as a release asset.
+      contents: write
 
     steps:
       - name: Checkout
@@ -44,15 +47,29 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec neu build --release --clean
 
-      - name: List release output
+      - name: Verify Windows executable
         working-directory: apps/desktop
         shell: pwsh
-        run: Get-ChildItem -Recurse release | Select-Object FullName, Length
+        run: |
+          if (-not (Test-Path "release/zendisk/zendisk-win_x64.exe")) {
+            throw "Windows executable was not produced"
+          }
+          Get-ChildItem -Recurse release | Select-Object FullName, Length
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: zendisk-windows
-          path: apps/desktop/release/zendisk-release.zip
-          if-no-files-found: error
-          retention-days: 14
+      # Actions artifact storage is quota-limited on this account, so publish
+      # the package as a rolling pre-release asset instead (separate storage).
+      - name: Publish Windows build
+        if: github.event_name != 'pull_request'
+        working-directory: apps/desktop
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "windows-latest"
+          $zip = "release/zendisk-release.zip"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --prerelease --title "Windows build (latest)" --notes "Automated Windows build from main." $zip
+          } else {
+            gh release upload $tag $zip --clobber
+          }
