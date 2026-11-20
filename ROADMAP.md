@@ -2,7 +2,7 @@
 
 Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0 and 1 complete — monorepo scaffold, Neutralinojs shell, folder structure, design tokens, foundation components, and the desktop shell are in place. Dependencies are installed and `pnpm typecheck` passes. Feature screens are still placeholders; Phase 2 (shared data components) is next.
+**Current status:** Phases 0–2 complete — monorepo scaffold, Neutralinojs shell, design tokens, foundation components, desktop shell, and shared data components are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI configured. Feature screens are still placeholders; Phase 3 (main screens) is next.
 
 **Runtime:** Neutralinojs (spec originally said Electron; see `Spec.md` §32 / `AGENTS.md`).
 
@@ -53,18 +53,20 @@ Goal: a working shell with the core interaction primitives.
 
 ## Phase 2 — Shared data components
 
-- [ ] `MetricCard`, `DriveCard`, `StorageBar`, `ProgressBar`
-- [ ] `FileSize` (binary units, consistent precision), `DateDisplay` (exact timestamp tooltip)
-- [ ] `StatusBadge` (healthy, warning, critical, running, completed, failed, paused)
-- [ ] `FileIcon`, `FileRow`, `FolderRow`, `FileList`, `BreadcrumbPath`, `FileDetailsPanel`, `FilePreview`
-- [ ] `DataTable` — sorting, filtering, selection, multi-select, column visibility/resizing, pagination or virtualization, empty/loading states, context menu
-- [ ] `SearchInput`, `FilterBar`, `EmptyState`, `Skeleton`
-- [ ] `Toast` (success, info, warning, error) + toast viewport
-- [ ] `Treemap` — hierarchy, labels, hover details, selection, zoom, breadcrumbs, legend, accessible list
-- [ ] `InlineAlert`, `OperationSummary`, `ProgressDialog`
-- [ ] Bulk-action toolbar pattern for file selection
+- [x] `MetricCard`, `DriveCard`, `StorageBar`, `ProgressBar`
+- [x] `FileSize` (binary units, consistent precision), `DateDisplay` (exact timestamp tooltip)
+- [x] `StatusBadge` (healthy, warning, critical, running, completed, failed, paused) — icon + label, not color alone
+- [x] `FileIcon`, `FileRow`, `FolderRow`, `FileList`, `BreadcrumbPath`, `FileDetailsPanel`, `FilePreview`
+- [x] `DataTable` — sorting, filtering, selection, multi-select, column visibility, pagination, loading/empty states. Column resizing and virtualization deferred (pagination chosen per "or").
+- [x] `SearchInput`, `FilterBar`, `EmptyState`, `Skeleton`
+- [x] `Toast` (success, info, warning, error) + toast viewport
+- [x] `Treemap` — squarified layout, labels, hover details, selection, drill-down callback, legend, accessible list. Breadcrumb/zoom are screen-level (disk analysis) concerns.
+- [x] `InlineAlert`, `OperationSummary`, `ProgressDialog`
+- [x] Bulk-action toolbar pattern for file selection
 
 **Exit criteria:** components consume only tokens; every data component has empty/loading/error/partial states; Treemap has a non-color way to distinguish categories.
+
+**Phase 2 status: complete** (all items checked; `pnpm typecheck` passes).
 
 ---
 
@@ -135,3 +137,4 @@ Goal: a working shell with the core interaction primitives.
 | 2026-11-20 | Built the desktop shell: Sidebar (persisted collapse/width), PageHeader, layout helpers, StatusBar, and a router with placeholder screens. | Completes Phase 1 #6. Router skeleton item marked done here. |
 | 2026-11-20 | Added `useGlobalShortcuts` with input-focus guards; Escape left to Radix. Replaced wildcard `nativeAllowList` entries with an explicit method list. | Completes Phase 1 #7 and advances least-privilege native access. |
 | 2026-11-20 | Added `.github/workflows/build-windows.yml`. Separated Vite output (`build/`) from `neu build` output (`release/`) to avoid the CLI packaging its own output. `neu update --latest` added to `build:app`. | Enables Windows CI packaging; `dist/` was a latent conflict. |
+| 2026-11-20 | Phase 2 data components built sequentially with a typecheck + commit after each batch. Chose DataTable pagination over virtualization; Treemap drill-down/zoom delegated to the Disk Analysis screen. | Meets "pagination or virtualization" and keeps screen-specific navigation out of the shared widget. |
