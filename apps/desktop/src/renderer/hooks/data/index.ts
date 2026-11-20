@@ -5,3 +5,4 @@ export * from "./useCleanup";
 export * from "./useDuplicates";
 export * from "./useOrganization";
 export * from "./useMaintenance";
+export * from "./useAutomation";

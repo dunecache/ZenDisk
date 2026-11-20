@@ -1,2 +1,1 @@
-// Feature: automation — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./AutomationScreen";

@@ -7,6 +7,7 @@ import { CleanupScreen } from "@/features/cleanup";
 import { DuplicatesScreen } from "@/features/duplicates";
 import { OrganizationScreen } from "@/features/organization";
 import { MaintenanceScreen } from "@/features/maintenance";
+import { AutomationScreen } from "@/features/automation";
 import { defaultRoute } from "@/components/navigation";
 import { useAppVersion } from "@/hooks/data";
 
@@ -38,8 +39,9 @@ export function AppRoutes() {
         <Route path="/duplicates" element={<DuplicatesScreen />} />
         <Route path="/organization" element={<OrganizationScreen />} />
         <Route path="/maintenance" element={<MaintenanceScreen />} />
+        <Route path="/automation" element={<AutomationScreen />} />
         {screens
-          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup", "/duplicates", "/organization", "/maintenance"].includes(screen.path))
+          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup", "/duplicates", "/organization", "/maintenance", "/automation"].includes(screen.path))
           .map((screen) => (
             <Route
               key={screen.path}

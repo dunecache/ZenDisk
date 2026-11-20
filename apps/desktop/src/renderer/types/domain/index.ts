@@ -7,3 +7,4 @@ export * from "./operations";
 export * from "./duplicates";
 export * from "./organization";
 export * from "./maintenance";
+export * from "./automation";
