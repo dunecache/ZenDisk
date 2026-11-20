@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import {
+  EmptyState,
   FilterBar,
   InlineAlert,
   MetricCard,
@@ -28,6 +29,30 @@ export function DiskAnalysisScreen() {
   const { data, isLoading, isError, refetch } = useAnalysis(driveId);
 
   const setDrive = (id: string) => setSearchParams({ drive: id });
+
+  // Dev/preview drive-unavailable state; Phase 6 feeds this from native errors.
+  if (driveId === "unavailable") {
+    return (
+      <>
+        <PageHeader
+          title="Disk analysis"
+          description="Understand the contents of a selected drive."
+          breadcrumbs={[{ label: "ZenDisk" }, { label: "Disk analysis" }]}
+        />
+        <PageContainer>
+          <div className="flex flex-col gap-[var(--space-4)]">
+            <InlineAlert variant="danger" title="Drive unavailable">
+              The selected drive is no longer connected. No scan was started.
+            </InlineAlert>
+            <EmptyState
+              heading="Drive unavailable"
+              description="Reconnect the drive or choose another one from the selector."
+            />
+          </div>
+        </PageContainer>
+      </>
+    );
+  }
 
   const files = data?.largestFiles.filter((file) =>
     file.name.toLowerCase().includes(query.trim().toLowerCase()),

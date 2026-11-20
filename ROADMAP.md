@@ -128,7 +128,7 @@ Visual, interaction, and accessibility polish. These checks do not require real 
 - [x] Dark theme audit (equal polish to light) — static token/contrast parity verified; runtime visual review is a Windows-only item in Phase 7
 - [x] Keyboard shortcuts + focus management — all Spec §34 shortcuts wired in `AppShell`; input-focus guard moved ahead of every handler; Ctrl+K opens a destination search dialog
 - [x] Accessibility pass (contrast, screen readers, dialogs, reduced motion) — code-level pass complete: AA tokens, `role="alert"`, dialog focus traps, reduced-motion reset, menu focus ring, labeled brand, focus rings on retry links. Runtime screen-reader check moves to Phase 7.
-- [x] Loading, empty, error, permission, drive-unavailable states on every screen — shared `AccessGate` adds a reachable denied state to the five Phase 3 screens; `?access=denied` exercises it in the preview. Real drive-unavailable partial states are Phase 6.7.
+- [x] Loading, empty, error, permission, drive-unavailable states on every screen — shared `AccessGate` adds a reachable denied state to the five Phase 3 screens (`?access=denied`); Disk Analysis has a reachable drive-unavailable state (`?drive=unavailable`). Real partial-scan states remain Phase 6.7.
 - [x] Responsive window behavior (1440+ / 1100–1439 / 900–1099) — `compact`/`desktop` breakpoints added and the sidebar auto-collapses below 1100px
 - [x] Micro-interactions using spec durations (120/100/140/180/180/200ms) — all transitions consume the existing motion tokens
 - [x] Self-host fonts via `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500), `font-display: swap`, `system-ui` fallback; CSP unchanged, tabular numbers use Inter via `font-variant-numeric`
@@ -264,7 +264,7 @@ These are tracked, not silently deferred. Phase 4 passed senior verification; th
 
 - [ ] Raise light-theme `--muted` and semantic status text to WCAG AA (≥4.5:1) on surface/background and tinted backgrounds; check `--danger-foreground` on `--danger` (design auditor findings 1–3)
 - [ ] Use `role="alert"` for danger/error `InlineAlert` and `Toast` variants (finding 4)
-- [ ] Wire Ctrl+K, Ctrl+F, Ctrl+R and Delete handlers; move the input-focus guard ahead of all shortcuts (findings 5–6)
+- [x] Wire Ctrl+K, Ctrl+F, Ctrl+R and Delete handlers; input-focus guard moved ahead of all shortcuts. Delete dispatches `zendisk:delete` and Cleanup opens its confirmation dialog (findings 5–6)
 - [ ] Add the specified 1100–1439 and 900–1099 breakpoints and auto-collapse the sidebar below 1100px (finding 7)
 - [ ] Accessible name for collapsed brand link; focus-visible styling for bare "Try again" buttons; stronger menu focus indicator (findings 10–12)
 - [ ] Label partially populated report periods instead of silently filtering (finding 9)

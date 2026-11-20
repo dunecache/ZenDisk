@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
@@ -16,6 +16,19 @@ export function CleanupScreen() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [lastRecord, setLastRecord] = useState<OperationRecord | null>(null);
   const addOperation = useOperationHistory((state) => state.add);
+
+  // Spec §34: Delete opens the contextual confirmation for the current selection.
+  useEffect(() => {
+    const onDelete = () => {
+      if (selected.size === 0) {
+        toast.info("Nothing selected", "Select cleanup categories first.");
+        return;
+      }
+      setReviewOpen(true);
+    };
+    window.addEventListener("zendisk:delete", onDelete);
+    return () => window.removeEventListener("zendisk:delete", onDelete);
+  }, [selected.size]);
 
   const categories = data?.categories ?? [];
   const selectedCategories = categories.filter((category) => selected.has(category.id));
