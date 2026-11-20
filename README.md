@@ -2,7 +2,7 @@
 
 ZenDisk is a desktop storage management and PC maintenance workspace built with **Tauri v2 + React + TypeScript**. This repository is a pnpm monorepo containing the Tauri desktop application and shared packages.
 
-> **Status:** Phases 0–3 complete (design system, shared components, desktop shell, five main screens on mock data). Phase 4 screens are next.
+> **Status:** Phases 0–3 complete (design system, shared components, desktop shell, five main screens). Phase 4 is in progress: `/maintenance` is done; `/automation`, `/reports`, `/settings`, and License/Help remain. All screens are UI-complete on mock data until Phase 6 native integration; see `ROADMAP.md`.
 
 ## Layout
 

@@ -1,12 +1,24 @@
 # ZenDisk roadmap
 
-Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
+Living plan for delivering ZenDisk from `Spec.md`: the UI surface, the native Tauri layer, and release readiness. Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 is in progress: `/maintenance` is complete; `/automation`, `/reports`, `/settings`, and License/Help remain.
+**Current status:** Phases 0–3 complete, Phase 4 in progress (`/maintenance` done; `/automation`, `/reports`, `/settings`, License/Help remain). All screens built so far are **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
-## Runtime migration to Tauri v2 ✅
+## Delivery tracks
+
+The spec's Part X build order covers the **product surface** only. Tauri has no Electron main process, so the native layer and release work need their own phases. Phase numbers 0–5 are kept as-is to preserve history; 6 and 7 are added.
+
+| Track | Phases | Definition of done |
+| --- | --- | --- |
+| Product surface | 0–5 | Layout, tokens, both themes, interactive flows, and loading/empty/error/partial states. Data may be mock-backed. A checked screen here means **UI-complete**, not shippable. |
+| Native integration | 6 | A typed operation in `src/renderer/lib/native/client.ts`, a least-privilege grant in `src-tauri/capabilities/default.json`, validated inputs/outputs, progress/cancellation where relevant, persistence, and no screen claiming a capability it lacks. |
+| Release readiness | 7 | Signed installer, updater channel, clean Windows 10/11 install/upgrade/uninstall, and the spec's Part IX checklist verified against real data. |
+
+**Sequencing:** finish Phase 4 → Phase 5 UI polish → Phase 6 native → Phase 7 release. Phase 6 introduces real permission, partial-scan, and hardware states, so those are re-audited there. If Windows 10/11 hardware is available earlier, Phase 6 can move ahead of Phase 5; it would then require a second, real-data polish pass.
+
+## Runtime migration to Tauri v2 ✅ (install/OTA verification pending Phase 7)
 
 - [x] Foundation swap: deps/scripts, Rust crate, `tauri.conf.json`, capabilities, generated icons; `neutralino.config.json` removed
 - [x] Renderer boundary: Tauri Vite config, `HashRouter`, facade with real app version, browser-preview fallback
@@ -14,7 +26,7 @@ Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update ch
 - [x] Signing key generated in a temporary CI workflow, stored as `TAURI_SIGNING_PRIVATE_KEY`, keygen runs deleted
 - [x] Windows CI rewritten: signed NSIS `setup.exe` + `.sig` + `latest.json` published to the rolling `windows-latest` pre-release
 - [x] Docs aligned; local `pnpm typecheck`, PR CI, and main CI all green
-- [ ] Windows 10/11 install and OTA smoke test on real hardware (Phase 5)
+- [ ] Windows 10/11 install and OTA smoke test on real hardware (Phase 7 — **blocked**: no Windows hardware available; CI compiles and publishes but cannot exercise the installed app)
 
 ---
 
@@ -90,7 +102,7 @@ Goal: a working shell with the core interaction primitives.
 
 **Exit criteria:** full navigation between screens; quick actions route correctly; no screen implies all identified files are safe; every destructive path has preview + confirmation + history entry.
 
-**Phase 3 status: complete** (all five screens built with mock-backed queries; `pnpm typecheck` passes).
+**Phase 3 status: UI-complete** (all five screens built with mock-backed queries; `pnpm typecheck` passes). Real operations land in Phase 6.
 
 ---
 
@@ -99,14 +111,18 @@ Goal: a working shell with the core interaction primitives.
 - [x] `/maintenance` — Overview (CPU/memory/disk activity/temperature *where supported*), Startup, Applications, Disk Health with source & limitations. Mock-backed; unsupported metrics show "Not available"; startup changes are explicitly disabled in the preview.
 - [ ] `/automation` — Scheduled Tasks / History, task cards, task editor, always-disable guarantee
 - [ ] `/reports` — recovered/duplicates/organized metrics, storage growth chart, activity timeline, recommendations
-- [ ] `/settings` — General, Appearance, Notifications, Cleanup, Organization, Storage, Privacy, License
+- [ ] `/settings` — General, Appearance, Notifications, Cleanup, Organization, Storage, Privacy, License. The Updates section arrives with native persistence in 6.6.
 - [ ] License and plan + Help entry points from sidebar
 
 **Exit criteria:** no unsupported metric presented as a measurement; scheduled actions can always be disabled; settings explain consequences.
 
+**Phase 4 status: in progress** — `/maintenance` UI-complete; the remaining screens still render placeholders. All Phase 4 data is mock-backed until Phase 6.
+
 ---
 
-## Phase 5 — Polish
+## Phase 5 — Polish (UI)
+
+Visual, interaction, and accessibility polish. These checks do not require real data and are done before native integration. Permission, drive-unavailable, and partial-scan states are re-audited in Phase 6.7 against real hardware.
 
 - [ ] Dark theme audit (equal polish to light)
 - [ ] Keyboard shortcuts + focus management
@@ -114,19 +130,120 @@ Goal: a working shell with the core interaction primitives.
 - [ ] Loading, empty, error, permission, drive-unavailable states on every screen
 - [ ] Responsive window behavior (1440+ / 1100–1439 / 900–1099)
 - [ ] Micro-interactions using spec durations (120/100/140/180/180/200ms)
-- [ ] Quality checklist sign-off from `Spec.md` Part IX
-- [ ] Windows NSIS `tauri build` smoke test
+- [ ] Quality checklist sign-off from `Spec.md` Part IX (visual/UX items)
+
+Windows installer and OTA verification have moved to Phase 7.
+
+---
+
+## Phase 6 — Native integration
+
+Goal: replace mock data with real Tauri commands, surface by surface, without changing the UI contracts established in Phases 3–5. Every command lands with its capability grant, validation, error mapping, and a state the UI already knows how to render. A screen is only **product-complete** at the end of this phase.
+
+### 6.0 Contracts and safety rails
+
+- [ ] Request/response schemas (Zod) for every command; replace the `notImplemented` signatures in `lib/native/client.ts` with typed operations
+- [ ] Standard error envelope (code, message, recoverability, details) mapped to user-facing copy
+- [ ] Progress + cancellation protocol for long scans (`disk.analyze`, `duplicates.scan`) using job ids and Tauri events
+- [ ] Path-safety rules: canonicalize paths, reject traversal outside the selected root, do not follow reparse points without explicit opt-in
+- [ ] Capability grants added per command as it lands, never pre-emptively
+- [ ] Rule: unsupported attributes or operations render as "Not available" rather than a fabricated value
+
+### 6.1 Disk and filesystem
+
+- [ ] `disk.list` — drives, capacity, free space, filesystem, removable/network flags
+- [ ] `disk.analyze` — async directory walk with progress, cancellation, partial results, and size aggregation by folder and file type
+- [ ] `files.list` / `files.inspect` — directory listing, metadata, reveal/open through the scoped shell grant
+- [ ] Swap Overview and Disk Analysis hooks from `mock-*` to `nativeApi`
+
+### 6.2 Cleanup and quarantine
+
+- [ ] `cleanup.preview` — exact files and sizes from real locations
+- [ ] `cleanup.execute` — move to Recycle Bin or ZenDisk quarantine, returning per-file results
+- [ ] Restore/undo for quarantined items; persist every operation in history
+- [ ] Re-verify the destructive path end to end: preview → explicit confirmation → result → history
+
+### 6.3 Organization and duplicates
+
+- [ ] `organizer.preview` / `organizer.execute` with conflict detection, dry-run, and undo where the filesystem allows
+- [ ] `duplicates.scan` with streaming hashes, progress, and cancellation; never auto-delete on hash match
+- [ ] Reuse the 6.2 quarantine for duplicate removal
+
+### 6.4 Maintenance
+
+- [ ] `system.metrics` — CPU, memory, and disk activity via `sysinfo`; temperature only when the device exposes it
+- [ ] `startup.list` / `startup.set` — list entries plus enable/disable with explicit confirmation and a revert path
+- [ ] `apps.list` — installed applications, publisher, version, install date, estimated size, and data source
+- [ ] `disk.health` — best-effort SMART attributes per drive, carrying source and limitations in the payload
+
+### 6.5 Automation and reports
+
+- [ ] `automation.*` — CRUD, enable/disable, run-now, next-run; decide between Windows Task Scheduler (survives exit) and an in-app scheduler (only while open) and document the limitation
+- [ ] `automation.history` — persisted runs with outcomes and errors
+- [ ] `operations.history` + `reports.summary` — real aggregates for the Reports screen
+
+### 6.6 Settings, persistence, and updates
+
+- [ ] Persist preferences through the `store` plugin: theme, density, notification preferences, cleanup/organization defaults
+- [ ] Settings sections read and write real preferences and explain consequences
+- [ ] Updates section: current version, "Check for updates", download/install progress, relaunch prompt
+- [ ] Verify preference and history migration across an app update
+
+### 6.7 Verification on Windows 10/11
+
+- [ ] Every screen exercised against a real drive, including permission-denied and drive-unavailable paths
+- [ ] Long scans confirmed non-blocking, with cancel and elapsed time
+- [ ] Operation history and undo verified across an app restart
+- [ ] Update check, download, signature verification, install, and relaunch verified against a newer CI build
+
+### Native capability matrix
+
+Proposed command names; update the state column as work lands. `stub` = facade exists but throws, `new` = not yet in the facade.
+
+| Surface | Command(s) | Mechanism / grant | State |
+| --- | --- | --- | --- |
+| App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Real |
+| Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Facade real; UI missing (6.6) |
+| Overview drives | `disk.list` | Custom command + path scope | Stub |
+| Disk analysis | `disk.analyze` | Custom command + progress events | Stub |
+| Files | `files.list`, `files.inspect` | Custom command + `fs`/`shell` scope | Stub |
+| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + Recycle Bin/quarantine | Stub |
+| Organization | `organizer.preview`, `organizer.execute` | Custom command + `fs` scope | Stub |
+| Duplicates | `duplicates.scan` | Custom command, streaming hash | Stub |
+| Activity history | `operations.history` | Custom command + `store` | Stub |
+| Maintenance | `system.metrics`, `startup.list`, `startup.set`, `apps.list`, `disk.health` | Custom commands | New (6.4) |
+| Automation | `automation.*`, `automation.history` | Custom commands + scheduler + `store` | New (6.5) |
+| Reports | `reports.summary` | Custom command over persisted history | New (6.5) |
+| License/help | — | `shell:allow-open` for external links | UI only |
+
+---
+
+## Phase 7 — Release readiness
+
+- [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified
+- [ ] Updater end to end: detect newer build, download, signature check, install, relaunch
+- [ ] Decide and document whether uninstall removes preferences, history, and quarantined files
+- [ ] Authenticode signing, or an explicit and documented SmartScreen warning
+- [ ] Revisit the updater key password and rotation procedure
+- [ ] Stable vs. beta channel decision (the rolling `windows-latest` tag is effectively a beta channel today)
+- [ ] Re-audit permission, drive-unavailable, partial-scan, and error states from Phase 5 against real data
+- [ ] Part IX quality checklist signed off against real data
+- [ ] Release notes / changelog practice
 
 ---
 
 ## Technical risks / open questions
 
-1. **Drive capacity & health data.** Tauri's web APIs do not expose disk size/SMART directly. Options: custom Rust commands (preferred), or a tightly scoped `shell:allow-execute` grant for allowlisted OS commands. Decide before Phase 3/4. Do not fake values.
-2. **Startup/applications inventory.** Platform-specific; implement as custom Rust commands. Define a "supported/unsupported" UI state.
+1. **Drive capacity & health data.** ~~Decide before Phase 3/4.~~ Resolved: custom Rust commands in Phase 6.1/6.4. Phases 3–5 use isolated mock data behind TanStack Query; unsupported attributes render as "Not available", never a fabricated value.
+2. **Startup/applications inventory.** Resolved: platform-specific custom Rust commands in Phase 6.4, with an explicit supported/unsupported state per field.
 3. ~~**`nativeAllowList` scope.**~~ Resolved: replaced wildcards with an explicit method list in the old `neutralino.config.json`, then superseded by Tauri capability grants in `src-tauri/capabilities/default.json`. Keep each grant least-privilege and add scopes only when a native operation lands.
-4. **shadcn/ui dependency.** Spec recommends it as a foundation. Adding Radix/CVA deps is a deliberate decision — make it before Phase 1 component work, or implement equivalents with tokens only.
-5. **Local fonts.** Package Inter and IBM Plex Mono files (or self-host) rather than relying on network fonts; CSP currently allows only `data:`/`self` font sources.
+4. ~~**shadcn/ui dependency.**~~ Resolved: adopted Radix/CVA in Phase 1; all visual values remain ZenDisk tokens.
+5. **Local fonts.** Still open: package Inter and IBM Plex Mono files (or self-host) rather than relying on network fonts; CSP currently allows only `data:`/`self` font sources.
 6. **Native API behavior in browser preview.** `pnpm dev:web` has no Tauri IPC; use typed facade stubs/mocks for UI development rather than calling `@tauri-apps/api` or plugin packages. `useAppVersion` falls back to `0.0.0` there.
+7. **Unverifiable native work from Termux.** CI can compile Rust but cannot exercise the installed app. Phase 6 work is not product-complete until it passes on Windows 10/11.
+8. **Scan and hashing performance.** Directory walks and duplicate hashing can saturate I/O. Mitigate with streaming, bounded concurrency, progress, and cancellation; benchmark on a real drive.
+9. **Scheduler reliability.** An in-app scheduler only runs while ZenDisk is open; Windows Task Scheduler survives exit but is harder to manage and audit. Decide in 6.5 and document the limitation in the UI.
+10. **Updater key custody.** Losing `TAURI_SIGNING_PRIVATE_KEY` permanently blocks updates for installed clients. The empty-password key is acceptable only while the repository stays private; revisit in Phase 7.
 
 ---
 
@@ -162,3 +279,8 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Published assets: NSIS `setup.exe`, `.sig`, and `latest.json`, uploaded in that order to the rolling `windows-latest` pre-release; old `zendisk-release.zip` removed. | Avoids quota-limited Actions artifacts; the manifest is last so clients never see a signature for a missing asset. |
 | 2026-11-20 | Built `/maintenance` on mock data. Unsupported readings (e.g. temperature) display "Not available" with an explanation instead of a placeholder number; disk health cards list the data source and limitations. Startup changes are disabled in the preview with a note that native control is not connected. | Spec requires never presenting unsupported metrics as measurements and being transparent about capability. |
 | 2026-11-20 | Extended `DataTable` with `selectable={false}` for read-only lists, and added a `maintenance` kind to `ActivityEvent` so the Maintenance tab can reuse the Overview `RecentActivity` component. | Reuse shared components instead of duplicating a selection-free table or an event list. |
+| 2026-11-20 | Split delivery into three tracks: product surface (Phases 0–5), native integration (Phase 6), release readiness (Phase 7). A checked UI screen means "UI-complete", not shippable. | The spec's Part X is a UI build order written for Electron; Tauri has no main process, and the native layer had no phase. Keeps existing phase numbers and history intact. |
+| 2026-11-20 | Mock data is deliberate through Phase 5. Real values only arrive in Phase 6; until then screens show a sample-data notice, and unsupported values show "Not available". | Avoids blocking UI work on native access and prevents mock numbers from being mistaken for measurements, as the spec requires. |
+| 2026-11-20 | Sequencing is Phase 4 → Phase 5 UI polish → Phase 6 native → Phase 7 release. Phase 6 re-audits permission, partial-scan, and hardware states. | Visual/a11y polish does not need real data; native work cannot be verified locally. If Windows hardware becomes available sooner, Phase 6 may move ahead of Phase 5 with a second polish pass. |
+| 2026-11-20 | Settings gains an **Updates** section (current version, check, install, relaunch) in Phase 6.6. | The updater exists in the runtime but postdates the spec's Settings section list, so this is a deliberate addition rather than a spec requirement. |
+| 2026-11-20 | Windows install and OTA verification moved from Phase 5 to Phase 7 and marked blocked on hardware. | CI compiles and publishes but cannot exercise an installed app; claiming Phase 5 complete without it would overstate readiness. |

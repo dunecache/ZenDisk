@@ -14,7 +14,7 @@ Replace the Neutralinojs shell with Tauri v2:
 - Windows 10/11 support (Windows 7 is **not** achievable — see blocker)
 
 Non-goals: portable exe, MSI, macOS/Linux bundles, code-signing certificate,
-Settings updater UI (Phase 4), implementing real disk/file native operations.
+Settings updater UI (Phase 6.6), implementing real disk/file native operations (Phase 6).
 
 ## Verification results
 
@@ -247,7 +247,7 @@ goes to the secret, the public key is committed. Note the trade-off in ROADMAP.
   - `windows.installMode: "passive"`
 - Capabilities: `updater:default`, `process:default`.
 - Facade: add typed `updates.check()` / `updates.install()` wrappers around
-  `@tauri-apps/plugin-updater` + `relaunch()`. No Settings UI yet (Phase 4).
+  `@tauri-apps/plugin-updater` + `relaunch()`. No Settings UI yet (Phase 6.6).
 - Delete `.github/workflows/keygen.yml` in a follow-up commit.
 
 ## Step 6 — CI rewrite
@@ -327,7 +327,7 @@ Rewrite the runtime story in:
 8. Verify `latest.json` parses and the signature matches the `.sig`; confirm the
    app version in the status bar matches the build.
 9. Cut a second build (`workflow_dispatch`) and confirm the installed app offers
-   the newer `0.1.<n+1>` version (manual check via the facade, UI in Phase 4).
+   the newer `0.1.<n+1>` version (manual check via the facade; UI in Phase 6.6).
 10. Update ROADMAP status and push the final docs commit.
 
 ## Acceptance criteria

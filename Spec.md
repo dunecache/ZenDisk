@@ -1673,6 +1673,8 @@ Shortcuts must not override standard text-editing behavior when an input has foc
 
 ### 36. Build order
 
+> **Implementation note:** This build order covers the UI surface only. Native integration (Tauri commands) is Phase 6 and release readiness is Phase 7 in `ROADMAP.md`. Phases 0–5 are UI-complete on mock data; native access starts in Phase 6.
+
 **Phase 1: Foundation**
 
 - Design tokens.

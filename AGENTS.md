@@ -25,7 +25,7 @@ Windows 10/11 are the supported desktop targets. Windows 7 is not achievable wit
 
 ## Current state
 
-Phases 0–3 are complete: design tokens, shared components, desktop shell, and the five main screens are implemented on mock data behind TanStack Query. Phase 4 screens are still placeholders. Check before importing a component — an existing folder does not guarantee an implementation.
+Phases 0–3 are complete: design tokens, shared components, desktop shell, and the five main screens are implemented on mock data behind TanStack Query. Phase 4 is in progress: `/maintenance` is implemented; `/automation`, `/reports`, `/settings`, and License/Help are still placeholders. All screens are mock-backed until Phase 6 native integration (`ROADMAP.md`). A screen being checked in Phases 0–5 means UI-complete, not product-complete. Check before importing a component — an existing folder does not guarantee an implementation.
 
 ## Repository layout
 
