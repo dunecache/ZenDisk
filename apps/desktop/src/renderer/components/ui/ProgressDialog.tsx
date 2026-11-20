@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./Dialog";
+import { ProgressBar } from "@/components/data-display";
 
 export interface ProgressDialogProps {
   open: boolean;
@@ -23,11 +24,7 @@ export interface ProgressDialogProps {
   onCancel?: () => void;
 }
 
-/**
- * Long-running task view: progress, current operation, elapsed time, cancel.
- * Uses a local token-based bar; swap in the shared ProgressBar once Phase 2
- * lands. Clearly distinguishes measurable from indeterminate progress.
- */
+/** Long-running task view: progress, current operation, elapsed time, cancel. */
 export function ProgressDialog({
   open,
   onOpenChange,
@@ -54,33 +51,18 @@ export function ProgressDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-[var(--space-2)]">
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={measurable ? Math.round(progress) : undefined}
-            aria-label={title}
-            className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-tertiary"
-          >
-            {measurable ? (
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-[var(--duration-panel)] ease-out"
-                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-              />
-            ) : (
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
-            )}
-          </div>
-          <div className="flex items-center justify-between">
+          <ProgressBar
+            value={measurable ? progress : undefined}
+            max={100}
+            indeterminate={!measurable}
+            showLabel
+            ariaLabel={title}
+          />
+          {elapsed && (
             <span className="text-[length:var(--text-caption)] text-muted">
-              {measurable ? `${Math.round(progress)}%` : "Working..."}
+              Elapsed {elapsed}
             </span>
-            {elapsed && (
-              <span className="text-[length:var(--text-caption)] text-muted">
-                Elapsed {elapsed}
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
         {cancellable && (

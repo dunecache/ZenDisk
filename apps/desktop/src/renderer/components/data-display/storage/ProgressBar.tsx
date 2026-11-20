@@ -18,6 +18,7 @@ export interface ProgressBarProps {
   showLabel?: boolean;
   /** Indeterminate work — clearly distinct from measurable progress. */
   indeterminate?: boolean;
+  ariaLabel?: string;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function ProgressBar({
   label,
   showLabel = false,
   indeterminate = false,
+  ariaLabel,
   className,
 }: ProgressBarProps) {
   const percent = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
@@ -47,7 +49,7 @@ export function ProgressBar({
       )}
       <div
         role="progressbar"
-        aria-label={label ?? "Progress"}
+        aria-label={ariaLabel ?? label ?? "Progress"}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={indeterminate ? undefined : Math.round(percent)}

@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/navigation";
 import { useGlobalShortcuts } from "@/hooks";
+import { ToastViewport } from "@/components/data-display";
 import { StatusBar } from "./StatusBar";
 import type { BackgroundTask } from "./StatusBar";
 
@@ -42,6 +43,7 @@ export function AppShell({
           version={version}
         />
       </div>
+      <ToastViewport />
     </div>
   );
 }
