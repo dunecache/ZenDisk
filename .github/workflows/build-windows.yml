@@ -1,0 +1,58 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # Version is read from the "packageManager" field in package.json.
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build renderer (Vite)
+        run: pnpm --filter @zendisk/desktop build
+
+      - name: Download Neutralino binaries
+        # `neu update` fetches the platform binaries into apps/desktop/bin.
+        # The client library is intentionally skipped (bundled via npm).
+        working-directory: apps/desktop
+        run: pnpm exec neu update --latest
+
+      - name: Package Neutralino app
+        working-directory: apps/desktop
+        run: pnpm exec neu build --release --clean
+
+      - name: List release output
+        working-directory: apps/desktop
+        shell: pwsh
+        run: Get-ChildItem -Recurse release | Select-Object FullName, Length
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zendisk-windows
+          path: apps/desktop/release/zendisk-release.zip
+          if-no-files-found: error
+          retention-days: 14

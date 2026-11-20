@@ -8,7 +8,8 @@ const appRoot = dirname(fileURLToPath(import.meta.url));
 const rendererRoot = resolve(appRoot, "src/renderer");
 
 export default defineConfig({
-  // Neutralino serves the built frontend from `documentRoot: "/dist/"`.
+  // Neutralino serves the built frontend from `documentRoot: "/build/"`.
+  // `dist/` is reserved by `neu build` for the packaged app binaries.
   root: rendererRoot,
   base: "./",
   resolve: {
@@ -22,7 +23,7 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    outDir: resolve(appRoot, "dist"),
+    outDir: resolve(appRoot, "build"),
     emptyOutDir: true,
   },
 });

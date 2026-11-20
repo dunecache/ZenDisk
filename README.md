@@ -11,7 +11,7 @@ ZenDisk/
 ├── apps/
 │   └── desktop/                  # Neutralinojs app (@zendisk/desktop)
 │       ├── neutralino.config.json
-│       ├── vite.config.ts        # Vite root = src/renderer, output = dist/
+│       ├── vite.config.ts        # Vite root = src/renderer, output = build/
 │       └── src/renderer/         # React UI
 │           ├── app/              # App root, router, providers
 │           ├── components/       # Shared components by responsibility
@@ -45,8 +45,8 @@ ZenDisk/
 ```bash
 pnpm install
 pnpm dev        # neu run — starts Vite HMR + the Neutralino window
-pnpm build      # vite build for the renderer (outputs apps/desktop/dist)
-pnpm build:app  # neu build --release — produce app binaries
+pnpm build      # vite build -> apps/desktop/build/ (web resources)
+pnpm build:app  # neu update + neu build --release -> apps/desktop/release/
 pnpm typecheck  # typecheck all workspace packages
 ```
 
@@ -58,11 +58,15 @@ pnpm --filter @zendisk/desktop neu:run -- --window-enable-inspector
 
 ## Neutralinojs integration
 
-- `neutralino.config.json` sets `documentRoot`/`cli.resourcesPath` to `/dist/` and configures `cli.frontendLibrary` so `neu run` drives the Vite dev server at `http://localhost:5173`.
+- `neutralino.config.json` sets `documentRoot`/`cli.resourcesPath` to `/build/` (Vite output) and `cli.distributionPath` to `/release/` (packaged app). `cli.frontendLibrary` makes `neu run` drive the Vite dev server at `http://localhost:5173`.
 - `injectGlobals: true` lets `@neutralinojs/lib` read the injected `NL_*` globals; `init()` is called in `src/renderer/main.tsx`.
 - `cli.clientLibrary` is intentionally absent — the client is bundled from the npm package `@neutralinojs/lib` rather than downloaded from GitHub releases.
 - Native access is allowlisted via `nativeAllowList` and funnelled through the typed facade in `src/renderer/lib/native/`. Components never call `@neutralinojs/lib` directly.
 - Because `injectGlobals: true` is enabled, no `__neutralino_globals.js` script tag is needed in `index.html` (it would otherwise be required for non-injected modes).
+
+## CI
+
+`.github/workflows/build-windows.yml` builds the Windows package on push/PR to `main` and on manual dispatch. It installs with pnpm, runs the Vite renderer build, downloads the Neutralino binaries with `neu update --latest`, packages with `neu build --release --clean`, and uploads `zendisk-windows` as an artifact.
 
 ## Design reference
 

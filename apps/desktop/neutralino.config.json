@@ -2,7 +2,7 @@
   "applicationId": "io.zendisk.app",
   "version": "0.0.0",
   "defaultMode": "window",
-  "documentRoot": "/dist/",
+  "documentRoot": "/build/",
   "url": "/",
   "enableServer": true,
   "enableNativeAPI": true,
@@ -41,7 +41,8 @@
   },
   "cli": {
     "binaryName": "zendisk",
-    "resourcesPath": "/dist/",
+    "resourcesPath": "/build/",
+    "distributionPath": "/release/",
     "extensionsPath": "/extensions/",
     "frontendLibrary": {
       "devUrl": "http://localhost:5173",

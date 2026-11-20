@@ -7,7 +7,7 @@
     "dev": "neu run",
     "dev:web": "vite",
     "build": "vite build",
-    "build:app": "neu build --release",
+    "build:app": "neu update --latest && neu build --release --clean",
     "neu:run": "neu run",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist"
