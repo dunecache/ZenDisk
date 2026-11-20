@@ -2,7 +2,7 @@
 
 Living plan for delivering ZenDisk from `Spec.md`: the UI surface, the native Tauri layer, and release readiness. Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–3 complete, Phase 4 in progress (`/maintenance` done; `/automation`, `/reports`, `/settings`, License/Help remain). All screens built so far are **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release.
+**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 is awaiting independent verification before Phase 5 starts.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
@@ -113,11 +113,11 @@ Goal: a working shell with the core interaction primitives.
 - [x] `/automation` — Scheduled Tasks / History, task cards, task editor, always-disable guarantee. Mock-backed; the enable/disable switch is always available, execution is limited to quarantine/report, and run history shows partial/failed/cancelled outcomes.
 - [x] `/reports` — recovered/duplicates/organized metrics, storage growth chart with readable axes/legend/tooltips, activity timeline, and evidence-based recommendations. Mock-backed with 7/30/90-day range filtering.
 - [x] `/settings` — General, Appearance, Notifications, Cleanup, Organization, Storage, Privacy, License. All eight sections are implemented with local preferences; Confirmation and Preview-before-apply are locked on. The Updates section arrives with native persistence in 6.6.
-- [ ] License and plan + Help entry points from sidebar
+- [x] License and plan + Help entry points from sidebar — both routes now render real screens (plan status, common questions, shortcuts); the router no longer uses `PlaceholderScreen` for any Phase 4 path.
 
 **Exit criteria:** no unsupported metric presented as a measurement; scheduled actions can always be disabled; settings explain consequences.
 
-**Phase 4 status: in progress** — `/maintenance` UI-complete; the remaining screens still render placeholders. All Phase 4 data is mock-backed until Phase 6.
+**Phase 4 status: UI-complete** — all four advanced screens and the License/Help entry points are implemented on mock data. Real operations land in Phase 6.
 
 ---
 

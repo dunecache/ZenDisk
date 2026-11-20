@@ -1,6 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout";
-import { PlaceholderScreen } from "./PlaceholderScreen";
 import { OverviewScreen } from "@/features/overview";
 import { DiskAnalysisScreen } from "@/features/disk-analysis";
 import { CleanupScreen } from "@/features/cleanup";
@@ -10,24 +9,12 @@ import { MaintenanceScreen } from "@/features/maintenance";
 import { AutomationScreen } from "@/features/automation";
 import { ReportsScreen } from "@/features/reports";
 import { SettingsScreen } from "@/features/settings";
+import { LicenseScreen } from "@/features/license";
+import { HelpScreen } from "@/features/help";
 import { defaultRoute } from "@/components/navigation";
 import { useAppVersion } from "@/hooks/data";
 
-const screens = [
-  { path: "/overview", title: "Overview" },
-  { path: "/disk-analysis", title: "Disk analysis" },
-  { path: "/cleanup", title: "Cleanup" },
-  { path: "/organization", title: "Organization" },
-  { path: "/duplicates", title: "Duplicates" },
-  { path: "/maintenance", title: "Maintenance" },
-  { path: "/automation", title: "Automation" },
-  { path: "/reports", title: "Reports" },
-  { path: "/settings", title: "Settings" },
-  { path: "/license", title: "License and plan" },
-  { path: "/help", title: "Help" },
-];
-
-/** Route table. Screens are placeholders until Phases 3–4 implement them. */
+/** Route table for all Phase 3–4 screens. */
 export function AppRoutes() {
   const { data: version } = useAppVersion();
 
@@ -44,20 +31,8 @@ export function AppRoutes() {
         <Route path="/automation" element={<AutomationScreen />} />
         <Route path="/reports" element={<ReportsScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
-        {screens
-          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup", "/duplicates", "/organization", "/maintenance", "/automation", "/reports", "/settings"].includes(screen.path))
-          .map((screen) => (
-            <Route
-              key={screen.path}
-              path={screen.path}
-              element={
-                <PlaceholderScreen
-                  title={screen.title}
-                  breadcrumbs={[{ label: "ZenDisk" }, { label: screen.title }]}
-                />
-              }
-            />
-          ))}
+        <Route path="/license" element={<LicenseScreen />} />
+        <Route path="/help" element={<HelpScreen />} />
         <Route path="*" element={<Navigate to={defaultRoute} replace />} />
       </Route>
     </Routes>
