@@ -13,11 +13,11 @@ jobs:
       - name: Generate keypair
         run: npx --yes @tauri-apps/cli@2.12.6 signer generate --ci -w "$RUNNER_TEMP/zendisk.key"
 
-      - name: Upload keypair
-        uses: actions/upload-artifact@v4
-        with:
-          name: updater-keypair
-          path: |
-            ${{ runner.temp }}/zendisk.key
-            ${{ runner.temp }}/zendisk.key.pub
-          retention-days: 1
+      - name: Print keypair
+        run: |
+          echo "PRIVATE_KEY_BEGIN"
+          cat "$RUNNER_TEMP/zendisk.key"
+          echo "PRIVATE_KEY_END"
+          echo "PUBLIC_KEY_BEGIN"
+          cat "$RUNNER_TEMP/zendisk.key.pub"
+          echo "PUBLIC_KEY_END"
