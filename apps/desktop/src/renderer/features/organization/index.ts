@@ -1,2 +1,1 @@
-// Feature: organization — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./OrganizationScreen";

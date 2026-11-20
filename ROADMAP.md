@@ -2,7 +2,7 @@
 
 Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–2 complete — monorepo scaffold, Neutralinojs shell, design tokens, foundation components, desktop shell, and shared data components are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI configured. Feature screens are still placeholders; Phase 3 (main screens) is next.
+**Current status:** Phases 0–3 complete — monorepo scaffold, Neutralinojs shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI configured. Advanced screens (Phase 4) are next.
 
 **Runtime:** Neutralinojs (spec originally said Electron; see `Spec.md` §32 / `AGENTS.md`).
 
@@ -75,10 +75,12 @@ Goal: a working shell with the core interaction primitives.
 - [x] `/overview` — StorageSummary, DriveCards, QuickActions, RecentActivity, Recommendations (dismissible, evidence-based). Mock-backed via TanStack Query; loading/error/empty states included.
 - [x] `/disk-analysis` — drive selector, capacity summary, Treemap with drill-down/breadcrumbs, file-type breakdown, largest files/folders, scan states, filters (mock-backed)
 - [x] `/cleanup` — tabs, category selection, review of exact files, warnings, explicit deletion confirmation, summary. Records operation history. Custom/Advanced tabs are marked as later iterations.
-- [ ] `/organization` — Rules / Templates / Preview / History, split-panel rule builder, preview table with conflicts
+- [x] `/organization` — tabs, split-panel rule list/editor, preview table with conflict badges, apply-selected. Templates/History marked as later iterations.
 - [x] `/duplicates` — tabs, grouped results, hash details, manual selection, recoverable quarantine. Never auto-deletes on hash match.
 
 **Exit criteria:** full navigation between screens; quick actions route correctly; no screen implies all identified files are safe; every destructive path has preview + confirmation + history entry.
+
+**Phase 3 status: complete** (all five screens built with mock-backed queries; `pnpm typecheck` passes).
 
 ---
 
