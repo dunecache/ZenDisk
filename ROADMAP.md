@@ -2,7 +2,7 @@
 
 Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI publishes a signed NSIS installer (`ZenDisk_0.1.9_x64-setup.exe`) with `.sig` and `latest.json`. Advanced screens (Phase 4) are next.
+**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Advanced screens (Phase 4) are next.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
