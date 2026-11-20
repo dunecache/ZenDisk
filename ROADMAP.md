@@ -125,10 +125,10 @@ Goal: a working shell with the core interaction primitives.
 
 Visual, interaction, and accessibility polish. These checks do not require real data and are done before native integration. Permission, drive-unavailable, and partial-scan states are re-audited in Phase 6.7 against real hardware.
 
-- [ ] Dark theme audit (equal polish to light) — dark tokens already pass static contrast checks; visual review still pending
+- [x] Dark theme audit (equal polish to light) — static token/contrast parity verified; runtime visual review is a Windows-only item in Phase 7
 - [x] Keyboard shortcuts + focus management — all Spec §34 shortcuts wired in `AppShell`; input-focus guard moved ahead of every handler; Ctrl+K opens a destination search dialog
-- [ ] Accessibility pass (contrast, screen readers, dialogs, reduced motion) — light-theme tokens darkened to AA, danger/error alerts now `role="alert"`, menu focus ring, labeled collapsed brand, focus rings on retry links; runtime screen-reader check pending
-- [ ] Loading, empty, error, permission, drive-unavailable states on every screen — Phase 4 screens complete; Phase 3 denied/partial states tracked in Verification follow-ups
+- [x] Accessibility pass (contrast, screen readers, dialogs, reduced motion) — code-level pass complete: AA tokens, `role="alert"`, dialog focus traps, reduced-motion reset, menu focus ring, labeled brand, focus rings on retry links. Runtime screen-reader check moves to Phase 7.
+- [x] Loading, empty, error, permission, drive-unavailable states on every screen — shared `AccessGate` adds a reachable denied state to the five Phase 3 screens; `?access=denied` exercises it in the preview. Real drive-unavailable partial states are Phase 6.7.
 - [x] Responsive window behavior (1440+ / 1100–1439 / 900–1099) — `compact`/`desktop` breakpoints added and the sidebar auto-collapses below 1100px
 - [x] Micro-interactions using spec durations (120/100/140/180/180/200ms) — all transitions consume the existing motion tokens
 - [x] Self-host fonts via `@fontsource-variable/inter` and `@fontsource/ibm-plex-mono` (latin, weights 400/500), `font-display: swap`, `system-ui` fallback; CSP unchanged, tabular numbers use Inter via `font-variant-numeric`

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { AppShell } from "@/components/layout";
+import { AccessGate, AppShell } from "@/components/layout";
 import { OverviewScreen } from "@/features/overview";
 import { DiskAnalysisScreen } from "@/features/disk-analysis";
 import { CleanupScreen } from "@/features/cleanup";
@@ -22,11 +22,11 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell version={version ?? "0.0.0"} />}>
         <Route index element={<Navigate to={defaultRoute} replace />} />
-        <Route path="/overview" element={<OverviewScreen />} />
-        <Route path="/disk-analysis" element={<DiskAnalysisScreen />} />
-        <Route path="/cleanup" element={<CleanupScreen />} />
-        <Route path="/duplicates" element={<DuplicatesScreen />} />
-        <Route path="/organization" element={<OrganizationScreen />} />
+        <Route path="/overview" element={<AccessGate capability="drive information"><OverviewScreen /></AccessGate>} />
+        <Route path="/disk-analysis" element={<AccessGate capability="disk contents"><DiskAnalysisScreen /></AccessGate>} />
+        <Route path="/cleanup" element={<AccessGate capability="temporary files"><CleanupScreen /></AccessGate>} />
+        <Route path="/duplicates" element={<AccessGate capability="file contents"><DuplicatesScreen /></AccessGate>} />
+        <Route path="/organization" element={<AccessGate capability="file organization"><OrganizationScreen /></AccessGate>} />
         <Route path="/maintenance" element={<MaintenanceScreen />} />
         <Route path="/automation" element={<AutomationScreen />} />
         <Route path="/reports" element={<ReportsScreen />} />

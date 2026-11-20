@@ -6,3 +6,4 @@ export * from "./Section";
 export * from "./SplitPanel";
 export * from "./StatusBar";
 export * from "./AppShell";
+export * from "./AccessGate";
