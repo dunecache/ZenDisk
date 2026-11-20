@@ -2,7 +2,7 @@
   "name": "@zendisk/core",
   "version": "0.0.0",
   "private": true,
-  "description": "Core domain services for ZenDisk (reserved; not used by the Neutralinojs renderer)",
+  "description": "Core domain services for ZenDisk (reserved; not used by the Tauri renderer)",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

@@ -2,18 +2,18 @@
 
 Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–3 complete — monorepo scaffold, Neutralinojs shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI configured. Advanced screens (Phase 4) are next.
+**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI builds a signed NSIS installer. Advanced screens (Phase 4) are next.
 
-**Runtime:** Neutralinojs (spec originally said Electron; see `Spec.md` §32 / `AGENTS.md`).
+**Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
 ---
 
 ## Phase 0 — Scaffold ✅
 
 - [x] pnpm workspace (`apps/*`, `packages/*`) with root scripts
-- [x] `@zendisk/desktop` Neutralinojs app config (`neutralino.config.json`)
+- [x] ~~`@zendisk/desktop` Neutralinojs app config (`neutralino.config.json`)~~ — superseded by `src-tauri/tauri.conf.json`
 - [x] Vite + React + Tailwind setup (`vite.config.ts`, `index.html`)
-- [x] `@neutralinojs/lib` init in renderer `main.tsx` (guarded for browser preview)
+- [x] ~~`@neutralinojs/lib` init in renderer `main.tsx`~~ — superseded: Tauri initialises itself; no `init()` call
 - [x] Typed native-API facade (`src/renderer/lib/native/`)
 - [x] Full component/feature folder structure from spec
 - [x] `@zendisk/shared`, `@zendisk/core`, `@zendisk/ui` packages
@@ -105,28 +105,30 @@ Goal: a working shell with the core interaction primitives.
 - [ ] Responsive window behavior (1440+ / 1100–1439 / 900–1099)
 - [ ] Micro-interactions using spec durations (120/100/140/180/180/200ms)
 - [ ] Quality checklist sign-off from `Spec.md` Part IX
-- [ ] `neu build --release` smoke test
+- [ ] Windows NSIS `tauri build` smoke test
 
 ---
 
 ## Technical risks / open questions
 
-1. **Drive capacity & health data.** Neutralino's web APIs do not expose disk size/SMART directly. Options: `os.exec` allowlisted OS commands, a Neutralino extension, or a small native helper. Decide before Phase 3/4. Do not fake values.
-2. **Startup/applications inventory.** Platform-specific; may require extensions or OS command execution. Define a "supported/unsupported" UI state.
-3. ~~**`nativeAllowList` scope.**~~ Resolved: replaced wildcards with an explicit method list in `neutralino.config.json`. `os.execCommand` is retained because drive/SMART data needs it; keep its inputs strictly allowlisted in the native facade.
+1. **Drive capacity & health data.** Tauri's web APIs do not expose disk size/SMART directly. Options: custom Rust commands (preferred), or a tightly scoped `shell:allow-execute` grant for allowlisted OS commands. Decide before Phase 3/4. Do not fake values.
+2. **Startup/applications inventory.** Platform-specific; implement as custom Rust commands. Define a "supported/unsupported" UI state.
+3. ~~**`nativeAllowList` scope.**~~ Resolved: replaced wildcards with an explicit method list in the old `neutralino.config.json`, then superseded by Tauri capability grants in `src-tauri/capabilities/default.json`. Keep each grant least-privilege and add scopes only when a native operation lands.
 4. **shadcn/ui dependency.** Spec recommends it as a foundation. Adding Radix/CVA deps is a deliberate decision — make it before Phase 1 component work, or implement equivalents with tokens only.
 5. **Local fonts.** Package Inter and IBM Plex Mono files (or self-host) rather than relying on network fonts; CSP currently allows only `data:`/`self` font sources.
-6. **Native API behavior in browser preview.** `pnpm dev:web` has no native API; use typed facade stubs/mocks for UI development rather than calling `@neutralinojs/lib`.
+6. **Native API behavior in browser preview.** `pnpm dev:web` has no Tauri IPC; use typed facade stubs/mocks for UI development rather than calling `@tauri-apps/api` or plugin packages. `useAppVersion` falls back to `0.0.0` there.
 
 ---
 
 ## Decisions & deviations
 
+Earlier Neutralinojs entries are kept as history and marked superseded by the Tauri v2 row below.
+
 | Date | Decision | Rationale |
 | --- | --- | --- |
-| 2026-11-20 | Desktop runtime is Neutralinojs, not Electron. | Lighter footprint; user direction. Spec §32 superseded by `src/renderer/lib/native/`. |
-| 2026-11-20 | `injectGlobals: true`; no `__neutralino_globals.js` script tag. | Simplifies Vite HMR integration with `neu run`. |
-| 2026-11-20 | `clientLibrary` omitted from CLI config. | Client is bundled from npm `@neutralinojs/lib` instead of downloaded from GitHub releases. |
+| 2026-11-20 | ~~Desktop runtime is Neutralinojs, not Electron.~~ **(superseded)** | Replaced by Tauri v2 below. |
+| 2026-11-20 | ~~`injectGlobals: true`; no `__neutralino_globals.js` script tag.~~ **(superseded)** | Neutralino-only. |
+| 2026-11-20 | ~~`clientLibrary` omitted from CLI config.~~ **(superseded)** | Neutralino-only. |
 | 2026-11-20 | `@zendisk/core` kept as a reserved package, not wired into desktop. | Avoid implying a main process exists; available for future framework-agnostic logic. |
 | 2026-11-20 | Expanded the renderer tree with responsibility-based subfolders; empty folders use `.gitkeep`. | Maps the spec's component/screen catalog to concrete locations without implementing components. |
 | 2026-11-20 | Adopted shadcn/ui as the primitive foundation: `components.json`, cva + Radix Slot, `cn()` via clsx/tailwind-merge. All visual values remain ZenDisk tokens. | Spec recommends shadcn as a foundation; user chose to adopt it. Added deps: `@radix-ui/react-slot`, `class-variance-authority`, `clsx`, `tailwind-merge`. |
@@ -138,6 +140,13 @@ Goal: a working shell with the core interaction primitives.
 | 2026-11-20 | Added Dialog / AlertDialog / Sheet / ProgressDialog using Radix Dialog & AlertDialog. Added `--overlay` token to both themes. | Completes Phase 1 #5. `ProgressDialog` uses a local progress bar to avoid a forward dependency on Phase 2 `ProgressBar`; swap later. |
 | 2026-11-20 | Built the desktop shell: Sidebar (persisted collapse/width), PageHeader, layout helpers, StatusBar, and a router with placeholder screens. | Completes Phase 1 #6. Router skeleton item marked done here. |
 | 2026-11-20 | Added `useGlobalShortcuts` with input-focus guards; Escape left to Radix. Replaced wildcard `nativeAllowList` entries with an explicit method list. | Completes Phase 1 #7 and advances least-privilege native access. |
-| 2026-11-20 | Added `.github/workflows/build-windows.yml`. Separated Vite output (`build/`) from `neu build` output (`release/`) to avoid the CLI packaging its own output. `neu update --latest` added to `build:app`. | Enables Windows CI packaging; `dist/` was a latent conflict. |
+| 2026-11-20 | ~~Added `.github/workflows/build-windows.yml` for `neu build` packaging.~~ **(superseded)** | Rewritten for Tauri: `pnpm tauri build` + signed NSIS + `latest.json`. |
 | 2026-11-20 | Phase 2 data components built sequentially with a typecheck + commit after each batch. Chose DataTable pagination over virtualization; Treemap drill-down/zoom delegated to the Disk Analysis screen. | Meets "pagination or virtualization" and keeps screen-specific navigation out of the shared widget. |
 | 2026-11-20 | Phase 3 uses isolated mock data behind TanStack Query hooks (`lib/native/mock-data.ts`, `hooks/data/`). Swapping to `nativeApi` is a one-line change per hook. `QueryProvider` added to App. | Enables fully interactive screens in the browser while native operations remain stubbed. |
+| 2026-11-20 | Migrated the desktop shell to **Tauri v2** (Rust crate in `apps/desktop/src-tauri/`). Removed `@neutralinojs/lib` / `@neutralinojs/neu`; added `@tauri-apps/api`, `@tauri-apps/cli` and plugins `fs`, `shell`, `dialog`, `os`, `store`, `updater`, `process`. | Signed OTA updates, single NSIS installer, small footprint. Full plan in `docs/tauri-v2-migration.md`. |
+| 2026-11-20 | Windows 7 dropped; Windows 10/11 are the supported targets. | Rust's `*-pc-windows-msvc` targets require Windows 10+, and current WebView2 docs list Win10/11 only. Tauri's Win7 documentation is stale. |
+| 2026-11-20 | Ship **NSIS `setup.exe` only** — no portable exe and no MSI. | Single artifact supports the updater and WebView2 bootstrap install. |
+| 2026-11-20 | `webviewInstallMode: embedBootstrapper` with `silent: true`; NSIS `installMode: currentUser`. | Fewer install failures than `downloadBootstrapper`; no admin rights required. |
+| 2026-11-20 | Updater signing key generated in a temporary `ubuntu-latest` workflow (artifact storage quota was hit, so keys were printed to a private run log) and imported via `gh secret set TAURI_SIGNING_PRIVATE_KEY`. All keygen runs deleted. Public key committed in `tauri.conf.json`. | Tauri requires minisign signatures; the secret must never be committed. The key has an empty password — acceptable for this private repo, to be revisited if the repo is published. |
+| 2026-11-20 | CI injects `0.1.<github.run_number>` on main and `0.0.<run_number>` on PRs via `--config`; `createUpdaterArtifacts` is disabled on PRs. | Updater ignores equal versions; a static `0.0.0` would never update. PRs have no signing secret. |
+| 2026-11-20 | Published assets: NSIS `setup.exe`, `.sig`, and `latest.json`, uploaded in that order to the rolling `windows-latest` pre-release; old `zendisk-release.zip` removed. | Avoids quota-limited Actions artifacts; the manifest is last so clients never see a signature for a missing asset. |

@@ -9,7 +9,7 @@
 > - Primary theme: Warm light
 > - Secondary theme: Deep botanical dark
 >
-> **Implementation delta (2026-11-20):** The desktop runtime for this repository is **Neutralinojs**, not Electron. All design, layout, component, interaction, and acceptance guidance below remains authoritative. Part VII §32 ("Electron boundary") is superseded by the typed native facade at `apps/desktop/src/renderer/lib/native/`, configured by `apps/desktop/neutralino.config.json`. See `AGENTS.md` and `ROADMAP.md`.
+> **Implementation delta (2026-11-20):** The desktop runtime for this repository is **Tauri v2**, not Electron (and no longer Neutralinojs). All design, layout, component, interaction, and acceptance guidance below remains authoritative. Part VII §32 ("Electron boundary") is superseded by the typed native facade at `apps/desktop/src/renderer/lib/native/`, backed by the Rust crate and capability grants in `apps/desktop/src-tauri/`. Windows 10/11 are the supported targets. See `AGENTS.md`, `ROADMAP.md`, and `docs/tauri-v2-migration.md`.
 
 ---
 
@@ -1351,7 +1351,7 @@ Errors must explain the next possible action.
 | UI | React |
 | Language | TypeScript |
 | Build | Vite |
-| Desktop | Electron *(superseded by Neutralinojs in this repository)* |
+| Desktop | Electron *(superseded by Tauri v2 in this repository)* |
 | Styling | Tailwind CSS |
 | UI foundation | shadcn/ui |
 | Icons | Lucide React |
@@ -1375,7 +1375,7 @@ Treat shadcn/ui as a foundation, not as the finished visual design. Customize co
 - Feature-oriented organization.
 - Shared design tokens.
 - No direct filesystem operations from components.
-- No direct native API access from arbitrary UI components *(the spec says "Electron API"; in this repository it means `@neutralinojs/lib` — see §32 delta)*.
+- No direct native API access from arbitrary UI components *(the spec says "Electron API"; in this repository it means `@tauri-apps/api` and `@tauri-apps/plugin-*` — see §32 delta)*.
 
 Example:
 
@@ -1525,7 +1525,7 @@ Use invalidation and updates after operations rather than maintaining duplicated
 
 ### 32. Electron boundary *(superseded in this repository)*
 
-> **Implementation delta:** ZenDisk now uses Neutralinojs. There is no Electron main process or preload bridge. The equivalent boundary is the typed facade in `apps/desktop/src/renderer/lib/native/`, with native permissions allowlisted in `apps/desktop/neutralino.config.json`. The principle below still applies in full: the renderer must not access privileged APIs directly, every operation must validate inputs and outputs, and only allowlisted operations may be exposed.
+> **Implementation delta:** ZenDisk now uses Tauri v2. There is no Electron main process or preload bridge. The equivalent boundary is the typed facade in `apps/desktop/src/renderer/lib/native/`, with privileged commands and plugin permissions granted in `apps/desktop/src-tauri/capabilities/default.json`. The principle below still applies in full: the renderer must not access privileged APIs directly, every operation must validate inputs and outputs, and only allowlisted operations may be exposed.
 
 React must not access Node.js filesystem APIs directly.
 
