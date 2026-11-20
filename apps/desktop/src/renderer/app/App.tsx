@@ -1,4 +1,4 @@
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { QueryProvider, ThemeProvider } from "./providers";
 import { AppRoutes } from "./router";
 import { TooltipProvider } from "@/components/ui";
@@ -12,9 +12,9 @@ export function App() {
     <ThemeProvider>
       <QueryProvider>
         <TooltipProvider delayDuration={400}>
-          <BrowserRouter>
+          <HashRouter>
             <AppRoutes />
-          </BrowserRouter>
+          </HashRouter>
         </TooltipProvider>
       </QueryProvider>
     </ThemeProvider>

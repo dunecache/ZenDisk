@@ -7,6 +7,7 @@ import { CleanupScreen } from "@/features/cleanup";
 import { DuplicatesScreen } from "@/features/duplicates";
 import { OrganizationScreen } from "@/features/organization";
 import { defaultRoute } from "@/components/navigation";
+import { useAppVersion } from "@/hooks/data";
 
 const screens = [
   { path: "/overview", title: "Overview" },
@@ -24,9 +25,11 @@ const screens = [
 
 /** Route table. Screens are placeholders until Phases 3–4 implement them. */
 export function AppRoutes() {
+  const { data: version } = useAppVersion();
+
   return (
     <Routes>
-      <Route element={<AppShell version="0.0.0" />}>
+      <Route element={<AppShell version={version ?? "0.0.0"} />}>
         <Route index element={<Navigate to={defaultRoute} replace />} />
         <Route path="/overview" element={<OverviewScreen />} />
         <Route path="/disk-analysis" element={<DiskAnalysisScreen />} />

@@ -1,10 +1,15 @@
 /**
  * Typed native-API boundary for the renderer.
  *
- * React components must call this facade — never `@neutralinojs/lib`
- * namespaces directly. It is the single allowlisted surface for privileged
+ * React components must call this facade — never `@tauri-apps/api` or plugin
+ * packages directly. This is the single allowlisted surface for privileged
  * operations, and the place where inputs/outputs get validated (Zod).
+ *
+ * Tauri commands and plugin permissions live in
+ * `apps/desktop/src-tauri/capabilities/default.json`.
  */
+
+import { getVersion } from "@tauri-apps/api/app";
 
 type Operation = (...args: never[]) => Promise<unknown>;
 
@@ -15,10 +20,14 @@ function notImplemented(name: string): Operation {
 }
 
 /**
- * Logical frontend operations. Names mirror the ZenDisk spec; the underlying
- * Neutralino native calls and validation are added as features are built.
+ * Logical frontend operations. Names mirror the ZenDisk spec. Tauri-backed
+ * implementations (custom `invoke()` commands or plugin bindings) are added as
+ * features are built; today only the app version uses real IPC.
  */
 export const nativeApi = {
+  app: {
+    version: () => getVersion(),
+  },
   disk: {
     list: notImplemented("disk.list"),
     analyze: notImplemented("disk.analyze"),

@@ -1,3 +1,4 @@
+export * from "./useAppVersion";
 export * from "./useOverview";
 export * from "./useAnalysis";
 export * from "./useCleanup";
