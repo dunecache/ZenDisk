@@ -146,5 +146,17 @@ export function applyTaskChange(change: AutomationTaskChange): void {
 
 /** Simulated async fetch so loading/skeleton states are exercised in dev. */
 export function fetchAutomation(): Promise<AutomationData> {
-  return new Promise((resolve) => setTimeout(() => resolve(automationData), 300));
+  return new Promise((resolve) =>
+    setTimeout(
+      () =>
+        resolve({
+          ...automationData,
+          tasks: automationData.tasks.map((task) => ({
+            ...task,
+            conditions: [...task.conditions],
+          })),
+        }),
+      300,
+    ),
+  );
 }

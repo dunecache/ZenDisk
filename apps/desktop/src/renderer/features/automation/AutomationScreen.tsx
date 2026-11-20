@@ -170,8 +170,8 @@ export function AutomationScreen() {
           {denied && (
             <InlineAlert variant="danger" title="Access to scheduled tasks was denied">
               ZenDisk cannot read or change Windows tasks until access is
-              restored. You can still disable a task here: the request is kept
-              in this preview and is never lost.
+              restored. You can still disable a task here; the request is held
+              in this preview until native access is connected.
             </InlineAlert>
           )}
 
@@ -185,8 +185,6 @@ export function AutomationScreen() {
               <StateGate
                 loading={loading}
                 error={isError}
-                denied={denied}
-                deniedAction={<Button onClick={() => void refetch()}>Try again</Button>}
                 empty={currentTasks.length === 0}
                 noResults={taskQuery.trim() !== "" && filteredTasks.length === 0}
                 noResultsHeading="No matching tasks"
