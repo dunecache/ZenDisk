@@ -2,7 +2,7 @@
 
 Living plan for implementing the ZenDisk UI specification (`Spec.md`). Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Advanced screens (Phase 4) are next.
+**Current status:** Phases 0–3 complete — monorepo scaffold, Tauri v2 shell, design tokens, foundation and shared data components, desktop shell, and all five main screens are in place. Dependencies installed, `pnpm typecheck` passes, Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 is in progress: `/maintenance` is complete; `/automation`, `/reports`, `/settings`, and License/Help remain.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
@@ -96,7 +96,7 @@ Goal: a working shell with the core interaction primitives.
 
 ## Phase 4 — Advanced screens
 
-- [ ] `/maintenance` — Overview (CPU/memory/disk/temperature *where supported*), Startup, Applications, Disk Health with source & limitations
+- [x] `/maintenance` — Overview (CPU/memory/disk activity/temperature *where supported*), Startup, Applications, Disk Health with source & limitations. Mock-backed; unsupported metrics show "Not available"; startup changes are explicitly disabled in the preview.
 - [ ] `/automation` — Scheduled Tasks / History, task cards, task editor, always-disable guarantee
 - [ ] `/reports` — recovered/duplicates/organized metrics, storage growth chart, activity timeline, recommendations
 - [ ] `/settings` — General, Appearance, Notifications, Cleanup, Organization, Storage, Privacy, License
@@ -160,3 +160,5 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Updater signing key generated in a temporary `ubuntu-latest` workflow (artifact storage quota was hit, so keys were printed to a private run log) and imported via `gh secret set TAURI_SIGNING_PRIVATE_KEY`. All keygen runs deleted. Public key committed in `tauri.conf.json`. | Tauri requires minisign signatures; the secret must never be committed. The key has an empty password — acceptable for this private repo, to be revisited if the repo is published. |
 | 2026-11-20 | CI injects `0.1.<github.run_number>` on main and `0.0.<run_number>` on PRs via `--config`; `createUpdaterArtifacts` is disabled on PRs. | Updater ignores equal versions; a static `0.0.0` would never update. PRs have no signing secret. |
 | 2026-11-20 | Published assets: NSIS `setup.exe`, `.sig`, and `latest.json`, uploaded in that order to the rolling `windows-latest` pre-release; old `zendisk-release.zip` removed. | Avoids quota-limited Actions artifacts; the manifest is last so clients never see a signature for a missing asset. |
+| 2026-11-20 | Built `/maintenance` on mock data. Unsupported readings (e.g. temperature) display "Not available" with an explanation instead of a placeholder number; disk health cards list the data source and limitations. Startup changes are disabled in the preview with a note that native control is not connected. | Spec requires never presenting unsupported metrics as measurements and being transparent about capability. |
+| 2026-11-20 | Extended `DataTable` with `selectable={false}` for read-only lists, and added a `maintenance` kind to `ActivityEvent` so the Maintenance tab can reuse the Overview `RecentActivity` component. | Reuse shared components instead of duplicating a selection-free table or an event list. |

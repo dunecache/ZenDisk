@@ -27,6 +27,8 @@ export interface DataTableProps<T> {
   data: T[];
   /** Value type is intentionally loose so typed accessor columns are accepted. */
   columns: ColumnDef<T, any>[];
+  /** Read-only tables can opt out of the selection column. Defaults to true. */
+  selectable?: boolean;
   getRowId?: (row: T, index: number) => string;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
@@ -44,6 +46,7 @@ export interface DataTableProps<T> {
 export function DataTable<T>({
   data,
   columns,
+  selectable = true,
   getRowId,
   selectedIds,
   onSelectionChange,
@@ -87,6 +90,7 @@ export function DataTable<T>({
       enableSorting: false,
       enableHiding: false,
     };
+    if (!selectable) return columns;
     return [selectColumn, ...columns];
 
     function toggleRow(id: string, checked: boolean) {
@@ -96,7 +100,7 @@ export function DataTable<T>({
       if (selectedIds === undefined) setInternalSelection(next);
       onSelectionChange?.(next);
     }
-  }, [columns, selection, selectedIds, onSelectionChange]);
+  }, [columns, selectable, selection, selectedIds, onSelectionChange]);
 
   const table = useReactTable({
     data,

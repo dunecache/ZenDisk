@@ -1,4 +1,4 @@
-import { Activity, Copy, FolderCog, Sparkles } from "lucide-react";
+import { Activity, Copy, FolderCog, Sparkles, Wrench } from "lucide-react";
 import { DateDisplay, EmptyState } from "@/components/data-display";
 import { Card } from "@/components/layout";
 import type { ActivityEvent } from "@/types";
@@ -8,6 +8,7 @@ const icons = {
   cleanup: Sparkles,
   organize: FolderCog,
   duplicates: Copy,
+  maintenance: Wrench,
 } as const;
 
 export interface RecentActivityProps {

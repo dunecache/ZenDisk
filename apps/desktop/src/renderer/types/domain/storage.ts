@@ -10,7 +10,7 @@ export interface DriveInfo {
 
 export interface ActivityEvent {
   id: string;
-  kind: "scan" | "cleanup" | "organize" | "duplicates";
+  kind: "scan" | "cleanup" | "organize" | "duplicates" | "maintenance";
   title: string;
   detail: string;
   at: string;
