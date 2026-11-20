@@ -244,7 +244,7 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 
 - [ ] Rotate to a password-protected updater key **before the first real install**: set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and verify a signed build
 - [ ] Back up the updater private key and password in a password manager plus one offline copy
-- [ ] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key
+- [ ] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key (`docs/updater-key-rotation.md`)
 - [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified; the uninstaller removes `\ZenDisk\` scheduled tasks
 - [ ] Updater end to end (manual, real hardware): detect newer build, download, signature check, install, relaunch
 - [ ] Decide and document whether uninstall removes preferences, history, and quarantined files

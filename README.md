@@ -62,7 +62,7 @@ The Tauri CLI has no Android/Termux binary. On those hosts use `pnpm dev:web` an
 - Vite writes to `apps/desktop/dist`; Tauri embeds that directory into the binary at compile time. There is no sidecar resource file.
 - Native access is funnelled through the typed facade in `src/renderer/lib/native/`. Components never call Tauri APIs directly.
 - `src-tauri/icons/` contains generated PNGs and `icon.ico`, derived from the brand mark in `src/renderer/assets/icon.png`.
-- Signed OTA updates use `latest.json` published on the rolling `windows-latest` pre-release; the public key is in `tauri.conf.json`, the private key only in the `TAURI_SIGNING_PRIVATE_KEY` repository secret.
+- Signed OTA updates use `latest.json` published on the rolling `windows-latest` pre-release; the public key is in `tauri.conf.json`, the private key only in the `TAURI_SIGNING_PRIVATE_KEY` secret and its password in `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Rotation procedure: `docs/updater-key-rotation.md`.
 - Windows 10/11 are supported. Windows 7 is not achievable with current Rust/WebView2 — see `docs/tauri-v2-migration.md`.
 
 ## CI

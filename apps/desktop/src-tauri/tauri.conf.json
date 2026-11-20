@@ -39,7 +39,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyNDE5Nzk3QkJDNkVFQzUKUldURjdzYTdsNWRCMHZnUVNyLzFWd1JrMXFCNEFWaEtOV2M2ZG96KzgxczNPbWNBT0NxWHVJUHIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI5RDEyQTA0RTE3RUNGNUUKUldSZXozN2hCQ3JSdVVMR0pTQ2N4dXJtTFhZSmRBbEN3YllvZXdWMWRMaTBGYW1nN3haZlpPYkgK",
       "endpoints": [
         "https://github.com/dunecache/ZenDisk/releases/download/windows-latest/latest.json"
       ],
