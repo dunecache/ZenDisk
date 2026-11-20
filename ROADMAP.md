@@ -26,7 +26,7 @@ The spec's Part X build order covers the **product surface** only. Tauri has no 
 - [x] Signing key generated in a temporary CI workflow, stored as `TAURI_SIGNING_PRIVATE_KEY`, keygen runs deleted
 - [x] Windows CI rewritten: signed NSIS `setup.exe` + `.sig` + `latest.json` published to the rolling `windows-latest` pre-release
 - [x] Docs aligned; local `pnpm typecheck`, PR CI, and main CI all green
-- [ ] Rotate the updater key to a password-protected key and set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (before the first real install — Phase 7)
+- [x] Rotate the updater key to a password-protected key and set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (2026-11-20, before any real installs). CI build `44818030760` signed the new installer with the new key; the `0.1.15` `.sig` key id matches the committed public key.
 - [ ] Windows 10/11 install and OTA smoke test on real hardware (Phase 7 — **blocked**: no Windows hardware available; CI compiles and publishes but cannot exercise the installed app)
 
 ---
@@ -242,9 +242,9 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 
 ## Phase 7 — Release readiness
 
-- [ ] Rotate to a password-protected updater key **before the first real install**: set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and verify a signed build
-- [ ] Back up the updater private key and password in a password manager plus one offline copy
-- [ ] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key (`docs/updater-key-rotation.md`)
+- [x] Rotate to a password-protected updater key **before the first real install**: set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and verify a signed build
+- [ ] Back up the updater private key and password in a password manager plus one offline copy (**user action** — GitHub secrets cannot be read back)
+- [x] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key (`docs/updater-key-rotation.md`)
 - [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified; the uninstaller removes `\ZenDisk\` scheduled tasks
 - [ ] Updater end to end (manual, real hardware): detect newer build, download, signature check, install, relaunch
 - [ ] Decide and document whether uninstall removes preferences, history, and quarantined files
@@ -269,7 +269,7 @@ All previously open items are resolved below; #6 remains a known limitation rath
 7. **Unverifiable native work from Termux.** Resolved by two verification levels. Pure Rust modules are tested with recorded PowerShell/WMI JSON and registry fixtures; a `--smoke` mode runs the real commands against a temp directory on `windows-latest`, together with a silent NSIS install, launch, and uninstall. Items move from `implemented` to `CI-verified`, then `hardware-verified`. Only OTA and SMART/permission paths stay manual because runners are VMs.
 8. **Scan and hashing performance.** Resolved by design: Rust aggregates and emits progress at most every ~200 ms as a depth-limited tree plus top-N lists, never per-file events. Walk with a pool of `min(cores, 8)`, cancel via `AtomicBool`, and read directory-entry metadata to avoid extra stats. Duplicates: size groups → head/tail partial hash → full BLAKE3 on collisions, with 2–4 hashers (1 on HDDs). Target: 500k files with no dropped UI frames.
 9. **Scheduler reliability.** Resolved: per-user Windows Task Scheduler tasks in `\ZenDisk\` run `zendisk.exe --run-task <id>` headless without admin rights. The Scheduler is the UI's source of truth, disable uses `/Change /DISABLE`, and the uninstaller removes the tasks. "Start when available" catches missed runs; tasks only run while the user is logged on. Scheduled actions may only quarantine, never permanently delete. Run history lives in SQLite because headless and UI runs can write concurrently.
-10. **Updater key custody.** Resolved: rotate now to a password-protected key, before any real installs pin the public key. Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, update the committed public key, and back up the key and password in a password manager plus one offline copy. A later rotation needs a bridge release signed by the old key; document that procedure in Phase 7. GitHub secrets cannot be read back.
+10. **Updater key custody.** Rotated on 2026-11-20 before any real installs; CI signing verified and the bridge-release procedure is documented in `docs/updater-key-rotation.md`. Remaining action: the user must copy the key and password into a password manager plus one offline copy, because GitHub secrets cannot be read back.
 
 ---
 
