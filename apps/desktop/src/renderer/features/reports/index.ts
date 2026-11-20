@@ -1,2 +1,1 @@
-// Feature: reports — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./ReportsScreen";

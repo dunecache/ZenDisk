@@ -1,2 +1,1 @@
-// reports feature-specific components. Implementation pending.
-export {};
+export * from "./charts/StorageGrowthChart";
