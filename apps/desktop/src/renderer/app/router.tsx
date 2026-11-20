@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout";
 import { PlaceholderScreen } from "./PlaceholderScreen";
 import { OverviewScreen } from "@/features/overview";
 import { DiskAnalysisScreen } from "@/features/disk-analysis";
+import { CleanupScreen } from "@/features/cleanup";
 import { defaultRoute } from "@/components/navigation";
 
 const screens = [
@@ -27,8 +28,9 @@ export function AppRoutes() {
         <Route index element={<Navigate to={defaultRoute} replace />} />
         <Route path="/overview" element={<OverviewScreen />} />
         <Route path="/disk-analysis" element={<DiskAnalysisScreen />} />
+        <Route path="/cleanup" element={<CleanupScreen />} />
         {screens
-          .filter((screen) => screen.path !== "/overview" && screen.path !== "/disk-analysis")
+          .filter((screen) => !["/overview", "/disk-analysis", "/cleanup"].includes(screen.path))
           .map((screen) => (
             <Route
               key={screen.path}
