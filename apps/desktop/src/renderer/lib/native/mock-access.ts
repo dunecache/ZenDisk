@@ -9,6 +9,8 @@ export function mockAccess(): "granted" | "denied" {
   if (typeof window === "undefined") return "granted";
   const hash = window.location.hash;
   const hashQuery = hash.includes("?") ? hash.slice(hash.indexOf("?") + 1) : "";
-  const params = new URLSearchParams(window.location.search || hashQuery);
-  return params.get("access") === "denied" ? "denied" : "granted";
+  const denied =
+    new URLSearchParams(window.location.search).get("access") === "denied" ||
+    new URLSearchParams(hashQuery).get("access") === "denied";
+  return denied ? "denied" : "granted";
 }

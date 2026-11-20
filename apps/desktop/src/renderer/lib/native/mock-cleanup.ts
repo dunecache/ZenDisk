@@ -1,6 +1,6 @@
 import type { CleanupCategory, CleanupData } from "@/types";
 
-const GB = 1024 ** 3;
+const MB = 1024 ** 2;
 
 function category(
   id: string,
@@ -32,18 +32,18 @@ function category(
 
 export const cleanupData: CleanupData = {
   categories: [
-    category("temp", "Temporary files", "Files created by applications that are no longer in use.", 2.1 * GB, 412, "temp"),
-    category("cache", "Application cache", "Cached data that can be regenerated on demand.", 1.5 * GB, 1260, "cache"),
+    category("temp", "Temporary files", "Files created by applications that are no longer in use.", 384 * MB, 8, "temp"),
+    category("cache", "Application cache", "Cached data that can be regenerated on demand.", 192 * MB, 8, "cache"),
     category(
       "installers",
       "Old installers",
       "Setup files left behind after installation.",
-      1.2 * GB,
-      37,
+      720 * MB,
+      6,
       "setup",
       "Some installers may be needed to repair or uninstall applications.",
     ),
-    category("logs", "Logs", "Diagnostic logs from applications and services.", 0.4 * GB, 89, "log"),
+    category("logs", "Logs", "Diagnostic logs from applications and services.", 72 * MB, 6, "log"),
   ],
 };
 
