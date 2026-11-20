@@ -2,7 +2,7 @@
 
 Living plan for delivering ZenDisk from `Spec.md`: the UI surface, the native Tauri layer, and release readiness. Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 passed independent verification (senior verifier PASS; specialist follow-ups tracked below); Phase 5 is next.
+**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 passed independent verification (senior verifier PASS; specialist follow-ups tracked below). Phase 5 is in progress: fonts, shortcuts, responsive bands, contrast tokens and focus cues are done; runtime a11y review, full state coverage and Part IX sign-off remain.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
