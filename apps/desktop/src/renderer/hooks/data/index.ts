@@ -7,3 +7,4 @@ export * from "./useOrganization";
 export * from "./useMaintenance";
 export * from "./useAutomation";
 export * from "./useReports";
+export * from "./useSettings";

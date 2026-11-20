@@ -1,2 +1,1 @@
-// Feature: settings — scaffolding placeholder. Implementation pending.
-export {};
+export * from "./SettingsScreen";
