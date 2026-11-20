@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Superseded pushes should not race to publish to the same rolling release.
+concurrency:
+  group: windows-build
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -109,6 +114,20 @@ jobs:
           # Order matters: the manifest is uploaded last so clients never see
           # a signature pointing at an asset that is not yet uploaded.
           gh release upload $tag $setup.FullName --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload installer" }
           gh release upload $tag "$($setup.FullName).sig" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload signature" }
           gh release upload $tag latest.json --clobber
-          gh release delete-asset $tag zendisk-release.zip --yes 2>$null
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload update manifest" }
+
+          # Remove assets from previous builds; filenames are versioned, so
+          # --clobber alone would leave stale installers in the release.
+          $assets = gh release view $tag --json assets --jq '.assets[].name'
+          foreach ($asset in $assets) {
+            $isOldInstaller = $asset -like 'ZenDisk_*-setup.exe' -and $asset -ne $setup.Name
+            $isOldSignature = $asset -like 'ZenDisk_*-setup.exe.sig' -and $asset -ne "$($setup.Name).sig"
+            if ($isOldInstaller -or $isOldSignature -or $asset -eq 'zendisk-release.zip') {
+              gh release delete-asset $tag $asset --yes
+            }
+          }
+          exit 0
