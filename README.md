@@ -27,7 +27,8 @@ ZenDisk/
 │   ├── core/                     # Reserved domain services (@zendisk/core)
 │   └── ui/                       # Design-system primitives (@zendisk/ui)
 ├── docs/
-│   └── tauri-v2-migration.md     # Runtime migration plan and decisions
+│   ├── tauri-v2-migration.md     # Runtime migration plan and decisions
+│   └── updater-key-rotation.md   # Bridge-release procedure for future key changes
 ├── package.json
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json

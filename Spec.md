@@ -1361,8 +1361,8 @@ Errors must explain the next possible action.
 | Tables | TanStack Table |
 | Validation | Zod |
 | Forms | React Hook Form |
-| Charts | Recharts |
-| Virtualization | TanStack Virtual |
+| Charts | Recharts *(repository uses a local token-driven SVG chart; see `ROADMAP.md` decisions)* |
+| Virtualization | TanStack Virtual *(dependency present; pagination was chosen for `DataTable`, see `ROADMAP.md` decisions)* |
 | Animation | CSS transitions |
 
 Treat shadcn/ui as a foundation, not as the finished visual design. Customize components to the ZenDisk system.
@@ -1673,7 +1673,7 @@ Shortcuts must not override standard text-editing behavior when an input has foc
 
 ### 36. Build order
 
-> **Implementation note:** This build order covers the UI surface only. Native integration (Tauri commands) is Phase 6 and release readiness is Phase 7 in `ROADMAP.md`. Phases 0–5 are UI-complete on mock data; native access starts in Phase 6.
+> **Implementation note:** This build order covers the UI surface only. Native integration (Tauri commands) is Phase 6 and release readiness is Phase 7 in `ROADMAP.md`. Phases 0–4 are UI-complete on mock data; Phase 5 is next; native access starts in Phase 6.
 
 **Phase 1: Foundation**
 

@@ -76,7 +76,7 @@ jobs:
           Get-ChildItem -Recurse $bundle | Select-Object FullName, Length
 
       - name: Generate update manifest
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
@@ -100,7 +100,7 @@ jobs:
       # Actions artifact storage is quota-limited on this account, so publish
       # the installer as a rolling pre-release asset instead.
       - name: Publish Windows build
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

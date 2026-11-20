@@ -1,7 +1,7 @@
 # ZenDisk — Tauri v2 migration plan
 
-Status: approved — Windows 10/11 minimum; Windows 7 is unsupported
-Branch: `feat/tauri-v2-migration`
+Status: merged — Windows 10/11 minimum; Windows 7 is unsupported
+Merged branch: `feat/tauri-v2-migration`
 Date: 2026-11-20
 
 ## Goal
@@ -359,7 +359,7 @@ Rewrite the runtime story in:
 | Tauri CLI absent locally | Icons generated locally and committed; all CLI/build verification in CI. |
 | CLI cannot be exercised before CI | Keep Step 1 config minimal; first PR run is the compile gate. |
 | `createUpdaterArtifacts` breaks PR builds | Per-event `--config` override to `false`; secret only needed on main. |
-| Signing key loss | Secret stored in GitHub; note that losing it prevents future updates. Keygen artifact deleted after import. |
+| Signing key loss | The rotated key is password-protected and stored in GitHub secrets; the user must back up key and password in a password manager plus one offline copy (Phase 7 item). GitHub secrets cannot be read back. Keygen artifacts and runs were deleted after import; bridge-release procedure in `docs/updater-key-rotation.md`. |
 | `latest.json` race | Upload exe, then sig, then manifest last; `--clobber`. |
 | Stale CDN manifest | GitHub asset caching (~minutes); acceptable for beta. Use a distinct tag per channel if it becomes a problem. |
 | SmartScreen warnings | No Authenticode cert; documented. Add signing in a later phase. |

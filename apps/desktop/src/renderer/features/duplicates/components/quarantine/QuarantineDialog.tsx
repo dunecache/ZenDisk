@@ -30,7 +30,7 @@ export function QuarantineDialog({ files, onConfirm }: QuarantineDialogProps) {
                   <li key={file.id} className="text-mono text-[length:var(--text-small)]">{file.path}/{file.name}</li>
                 ))}
               </ul>
-              <span>You decide which copies to keep. This action can be reversed.</span>
+              <span>At least one copy in every group is kept. This action can be reversed.</span>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

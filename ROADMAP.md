@@ -2,7 +2,7 @@
 
 Living plan for delivering ZenDisk from `Spec.md`: the UI surface, the native Tauri layer, and release readiness. Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 is awaiting independent verification before Phase 5 starts.
+**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phase 4 passed independent verification (senior verifier PASS; specialist follow-ups tracked below); Phase 5 is next.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
@@ -22,7 +22,7 @@ The spec's Part X build order covers the **product surface** only. Tauri has no 
 
 - [x] Foundation swap: deps/scripts, Rust crate, `tauri.conf.json`, capabilities, generated icons; `neutralino.config.json` removed
 - [x] Renderer boundary: Tauri Vite config, `HashRouter`, facade with real app version, browser-preview fallback
-- [x] Plugins registered with least-privilege grants (`fs`, `shell`, `dialog`, `os`, `store`, `updater`, `process`)
+- [x] Plugins registered; grants later tightened to what the facade uses (`core`, `updater`, `process`). `fs`, `shell`, `dialog`, `os`, and `store` registrations remain ungranted until their Phase 6 commands land.
 - [x] Signing key generated in a temporary CI workflow, stored as `TAURI_SIGNING_PRIVATE_KEY`, keygen runs deleted
 - [x] Windows CI rewritten: signed NSIS `setup.exe` + `.sig` + `latest.json` published to the rolling `windows-latest` pre-release
 - [x] Docs aligned; local `pnpm typecheck`, PR CI, and main CI all green
@@ -236,7 +236,7 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 | Maintenance | `system.metrics`, `startup.list`, `startup.set`, `apps.list`, `disk.health` | Custom commands | New (6.4) |
 | Automation | `automation.*`, `automation.history` | Custom commands + Task Scheduler + SQLite | New (6.5) |
 | Reports | `reports.summary` | Custom command over persisted history | New (6.5) |
-| License/help | — | `shell:allow-open` for external links | UI only |
+| License/help | — | None; external-link opening not connected | UI only |
 
 ---
 
@@ -256,9 +256,43 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 
 ---
 
+## Verification follow-ups (senior + specialist reviews, 2026-11-20)
+
+These are tracked, not silently deferred. Phase 4 passed senior verification; these items are inputs to later phases.
+
+**Phase 5 — polish/a11y/responsive**
+
+- [ ] Raise light-theme `--muted` and semantic status text to WCAG AA (≥4.5:1) on surface/background and tinted backgrounds; check `--danger-foreground` on `--danger` (design auditor findings 1–3)
+- [ ] Use `role="alert"` for danger/error `InlineAlert` and `Toast` variants (finding 4)
+- [ ] Wire Ctrl+K, Ctrl+F, Ctrl+R and Delete handlers; move the input-focus guard ahead of all shortcuts (findings 5–6)
+- [ ] Add the specified 1100–1439 and 900–1099 breakpoints and auto-collapse the sidebar below 1100px (finding 7)
+- [ ] Accessible name for collapsed brand link; focus-visible styling for bare "Try again" buttons; stronger menu focus indicator (findings 10–12)
+- [ ] Label partially populated report periods instead of silently filtering (finding 9)
+- [ ] Extend permission-denied and partial states to the Phase 3 screens (finding 15)
+
+**Phase 6 — native/performance/safety**
+
+- [ ] Hash contract needs `algorithm` and verification level (`size`/`partial`/`full`); `HashDetailsDialog` must not claim content verification for size-only groups (performance reviewer §2.5)
+- [ ] Progress/job/cancel protocol in the facade; selector-based progress store and memoized subtrees before wiring ~5 events/s (§2.3–2.4)
+- [ ] Virtualize `FileList` and duplicates group list; enforce top-N native payloads (§2.1, 2.6)
+- [ ] Add range to `reportsKeys` and memoize the cutoff when `reports.summary(range)` lands (§2.2)
+- [ ] Benchmark harness (`criterion` + `--bench-scan`), ratify the 500k-file/≤16.7ms frame targets (§1 and §4)
+- [ ] Path safety, per-file results, SQLite-backed history, accessible history UI, and privacy "clear history on exit" wiring (adversarial findings 3, 6 and cross-cutting history issues)
+- [ ] Remove ungranted plugin registrations from `lib.rs` until Phase 6 needs them; define the standard error envelope with the first command (security reviewer observations)
+- [ ] CI smoke job on `windows-latest`: `--smoke`, silent NSIS install, launch, uninstall, failing the build on error
+- [ ] NSIS uninstaller removes `\ZenDisk\` scheduled tasks; verify headless run cannot permanently delete
+
+**Phase 7 — release/user action**
+
+- [ ] Confirm the `windows-latest` release and all three assets are publicly reachable; verify re-run version collisions, cached-manifest/asset-deletion races, and concurrent-run publish ordering
+- [ ] User action: back up the updater key and password in a password manager plus one offline copy
+- [ ] Authenticode certificate decision and stable/beta channel decision
+
+---
+
 ## Technical risks / open questions
 
-All previously open items are resolved below; #6 remains a known limitation rather than a blocker.
+Items #1–5 and #7–10 are resolved below; #6 remains a known limitation rather than a blocker. Risk #10 still has one user action (offline key/password backup) tracked in Phase 7.
 
 1. **Drive capacity & health data.** ~~Decide before Phase 3/4.~~ Resolved: custom Rust commands in Phase 6.1/6.4. Phases 3–5 use isolated mock data behind TanStack Query; unsupported attributes render as "Not available", never a fabricated value.
 2. **Startup/applications inventory.** Resolved: platform-specific custom Rust commands in Phase 6.4, with an explicit supported/unsupported state per field.
@@ -318,7 +352,10 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Built `/automation` on mock data: task cards with an always-available enable/disable switch, a task editor limited to quarantine-only or report-only execution, and run history with partial/failed/cancelled outcomes. The switch stays interactive when access is denied; edits go through a TanStack Query mutation against the mock cache, not a parallel local copy. Preview edits are not written to operation history. | Spec requires that scheduled actions can always be disabled and that destructive operations remain recoverable. AGENTS.md requires application data to stay in TanStack Query; operation history is an audit trail for real operations only. |
 | 2026-11-20 | Built `/reports` on mock data with a 7/30/90-day selector. Reused `MetricCard`, `RecentActivity`, and `RecommendationList`; added a local SVG storage-growth chart with axis labels, legend, SVG point tooltips, and an `sr-only` data table. | Spec asks for meaningful charts with readable labels, legends, and tooltips; reusing existing components avoids visual inconsistencies. |
 | 2026-11-20 | Built `/settings` with eight sections and a searchable section list. Preferences persist locally in a new Zustand store (`zendisk-preferences`) until Phase 6 moves them to the Tauri store plugin. Confirmation before deletion and preview-before-apply are shown as locked-on. Telemetry is off by default. | Spec requires grouped forms that explain consequences; safety controls must never be presented as optional. The Updates section is deferred to 6.6 as previously decided. |
-| 2026-11-20 | Browser preview remains a known limitation: `pnpm dev:web` has no Tauri IPC, keeps the `0.0.0` version fallback, and uses facade mocks. Mock permission states can be exercised with `?access=denied` in the browser preview. | Preserves fast UI iteration without pretending native operations work in a browser; makes the implemented permission-denied states reachable for review. |
+| 2026-11-20 | Browser preview remains a known limitation: `pnpm dev:web` has no Tauri IPC, keeps the `0.0.0` version fallback, and uses facade mocks. Mock permission states can be exercised with `?access=denied` in the browser preview (with HashRouter, append it after the hash, e.g. `#/automation?access=denied`). | Preserves fast UI iteration without pretending native operations work in a browser; makes the implemented permission-denied states reachable for review. |
 | 2026-11-20 | Tightened `capabilities/default.json` to `core`, `updater`, and `process` only. `fs`, `shell`, `dialog`, `os`, and `store` grants are deferred to the Phase 6 commit that lands the matching command. | Verifier found the migrated grants broader than the facade surface; least privilege is a non-negotiable rule. |
 | 2026-11-20 | The "Show sample-data notices" preference now gates the preview banners on Maintenance, Automation, and Reports. | Verifier found an inert control; a setting must change something visible. |
 | 2026-11-20 | Committed `apps/desktop/src-tauri/Cargo.lock` (generated during Rust verification). The Tauri crate is an application, so a committed lockfile makes Windows CI builds reproducible. | Verifier's `cargo metadata --locked` passed and the subsequent Windows CI build was green. |
+| 2026-11-20 | Destructive-flow safety: duplicate selection now always keeps one copy per group; organization conflicts are excluded from the default selection, filtered on apply, and confirmed in a dialog; cleanup confirms a recoverable quarantine move instead of permanent deletion; cleanup mock file counts now match the files shown in review. | Adversarial review found pre-wired paths that could apply conflicts or quarantine every copy once native commands land. Spec rule 7 and the recoverability decision require these guards. |
+| 2026-11-20 | Publishing steps now require `github.ref == 'refs/heads/main'` in addition to "not a pull request", so a manual dispatch from another ref cannot rewrite `latest.json`. | CI reviewer found that an unrestricted `workflow_dispatch` could publish an update that installed clients would reject. |
+| 2026-11-20 | Specialist findings are recorded in a dedicated "Verification follow-ups" section with Phase 5/6/7 owners rather than silently deferred. | Keeps the phase gate honest: Phase 4 passed senior verification, and known a11y/performance/release gaps remain visible. |

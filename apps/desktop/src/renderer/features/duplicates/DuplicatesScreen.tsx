@@ -38,8 +38,22 @@ export function DuplicatesScreen() {
   const toggle = (id: string, checked: boolean) => {
     setSelected((current) => {
       const next = new Set(current);
-      if (checked) next.add(id);
-      else next.delete(id);
+      if (checked) {
+        next.add(id);
+        // Never allow a whole duplicate group to be selected: one copy must
+        // always remain outside quarantine.
+        for (const group of data?.groups ?? []) {
+          if (
+            group.files.some((file) => file.id === id) &&
+            group.files.every((file) => next.has(file.id))
+          ) {
+            const keeper = group.files.find((file) => file.id !== id);
+            if (keeper) next.delete(keeper.id);
+          }
+        }
+      } else {
+        next.delete(id);
+      }
       return next;
     });
   };

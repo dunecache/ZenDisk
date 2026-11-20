@@ -58,7 +58,7 @@ apps/desktop/                     Tauri app + React renderer
                                   components.css, globals.css, fonts/
     types/                        domain/, api/, native/
 
-Empty subfolders contain `.gitkeep` placeholders; most Phase 3 components are implemented, Phase 4 folders are not.
+Empty subfolders contain `.gitkeep` placeholders; all Phase 3 and Phase 4 feature folders are implemented.
 packages/shared/                  Framework-agnostic types, API contracts, constants
 packages/core/                    Reserved domain services (unused by renderer)
 packages/ui/                      Reusable design-system primitives

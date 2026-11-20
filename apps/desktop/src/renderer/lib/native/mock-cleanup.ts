@@ -1,53 +1,49 @@
 import type { CleanupCategory, CleanupData } from "@/types";
 
-const MB = 1024 ** 2;
 const GB = 1024 ** 3;
 
-function files(prefix: string, count: number, size: number, start = 0): CleanupCategory["files"] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${prefix}-${index}`,
-    name: `${prefix}_${start + index}.tmp`,
-    path: `C:/Users/me/AppData/Local/Temp/${prefix}`,
-    sizeBytes: size,
-    modifiedAt: new Date(Date.now() - 86400000 * (index + 1)).toISOString(),
-  }));
+function category(
+  id: string,
+  name: string,
+  description: string,
+  bytes: number,
+  count: number,
+  prefix: string,
+  warning?: string,
+): CleanupCategory {
+  return {
+    id,
+    name,
+    description,
+    bytes,
+    fileCount: count,
+    warning,
+    // The preview lists every file the confirmation counts, so the review
+    // never claims more files than it actually shows.
+    files: Array.from({ length: count }, (_, index) => ({
+      id: `${prefix}-${index}`,
+      name: `${prefix}_${index}.tmp`,
+      path: `C:/Users/me/AppData/Local/Temp/${prefix}`,
+      sizeBytes: bytes / count,
+      modifiedAt: new Date(Date.now() - 86_400_000 * (index + 1)).toISOString(),
+    })),
+  };
 }
 
 export const cleanupData: CleanupData = {
   categories: [
-    {
-      id: "temp",
-      name: "Temporary files",
-      description: "Files created by applications that are no longer in use.",
-      bytes: 2.1 * GB,
-      fileCount: 412,
-      files: files("temp", 8, 48 * MB),
-    },
-    {
-      id: "cache",
-      name: "Application cache",
-      description: "Cached data that can be regenerated on demand.",
-      bytes: 1.5 * GB,
-      fileCount: 1260,
-      files: files("cache", 8, 24 * MB, 100),
-    },
-    {
-      id: "installers",
-      name: "Old installers",
-      description: "Setup files left behind after installation.",
-      bytes: 1.2 * GB,
-      fileCount: 37,
-      warning: "Some installers may be needed to repair or uninstall applications.",
-      files: files("setup", 6, 120 * MB, 200),
-    },
-    {
-      id: "logs",
-      name: "Logs",
-      description: "Diagnostic logs from applications and services.",
-      bytes: 0.4 * GB,
-      fileCount: 89,
-      files: files("log", 6, 12 * MB, 300),
-    },
+    category("temp", "Temporary files", "Files created by applications that are no longer in use.", 2.1 * GB, 412, "temp"),
+    category("cache", "Application cache", "Cached data that can be regenerated on demand.", 1.5 * GB, 1260, "cache"),
+    category(
+      "installers",
+      "Old installers",
+      "Setup files left behind after installation.",
+      1.2 * GB,
+      37,
+      "setup",
+      "Some installers may be needed to repair or uninstall applications.",
+    ),
+    category("logs", "Logs", "Diagnostic logs from applications and services.", 0.4 * GB, 89, "log"),
   ],
 };
 

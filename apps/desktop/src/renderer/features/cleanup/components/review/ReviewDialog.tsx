@@ -68,15 +68,15 @@ function ConfirmDialog({ categories, bytes, fileCount, onConfirm }: {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete {fileCount} files</Button>
+        <Button variant="destructive">Remove {fileCount} files</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Confirm permanent deletion</AlertDialogTitle>
+          <AlertDialogTitle>Confirm cleanup</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="flex flex-col gap-[var(--space-2)]">
               <span>
-                This will permanently delete <strong>{fileCount} files</strong> totaling{" "}
+                This will move <strong>{fileCount} files</strong> totaling{" "}
                 <strong><FileSize bytes={bytes} /></strong> from:
               </span>
               <ul className="list-disc pl-[var(--space-5)]">
@@ -84,13 +84,13 @@ function ConfirmDialog({ categories, bytes, fileCount, onConfirm }: {
                   <li key={category.id}>{category.name} — {category.fileCount} files</li>
                 ))}
               </ul>
-              <span className="text-danger">Recovery is not possible. Files will not be moved to the recycle bin.</span>
+              <span>Files go to the Recycle Bin or ZenDisk quarantine and can be restored.</span>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel asChild><Button variant="outline">Cancel</Button></AlertDialogCancel>
-          <AlertDialogAction asChild><Button variant="destructive" onClick={onConfirm}>Delete permanently</Button></AlertDialogAction>
+          <AlertDialogAction asChild><Button variant="destructive" onClick={onConfirm}>Move to quarantine</Button></AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

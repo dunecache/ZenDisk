@@ -42,12 +42,12 @@ export function CleanupScreen() {
       skipped: 0,
       total: selectedFiles,
       reclaimedBytes: selectedBytes,
-      recoverable: false,
+      recoverable: true,
     };
     addOperation(record);
     setLastRecord(record);
     setSelected(new Set());
-    toast.success("Cleanup completed", `${selectedFiles} files removed`);
+    toast.success("Cleanup completed", `${selectedFiles} files moved to quarantine`);
   };
 
   return (
