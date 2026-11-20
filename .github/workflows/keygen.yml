@@ -20,11 +20,16 @@ jobs:
             -p "$KEYGEN_PASSWORD" \
             -f
 
-      - name: Upload keypair
-        uses: actions/upload-artifact@v4
-        with:
-          name: updater-keypair
-          path: |
-            ${{ runner.temp }}/zendisk.key
-            ${{ runner.temp }}/zendisk.key.pub
-          retention-days: 1
+      # Actions artifact storage is quota-limited on this account, so the
+      # keypair is printed to this private run log and the run is deleted after
+      # import. The password is never printed.
+      - name: Print keypair
+        run: |
+          echo "ZENDISK_KEY_B64_BEGIN"
+          base64 -w0 "$RUNNER_TEMP/zendisk.key"
+          echo
+          echo "ZENDISK_KEY_B64_END"
+          echo "ZENDISK_PUB_B64_BEGIN"
+          base64 -w0 "$RUNNER_TEMP/zendisk.key.pub"
+          echo
+          echo "ZENDISK_PUB_B64_END"
