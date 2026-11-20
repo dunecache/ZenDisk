@@ -46,7 +46,7 @@ export function DiskAnalysisScreen() {
             </InlineAlert>
             <EmptyState
               heading="Drive unavailable"
-              description="Reconnect the drive or choose another one from the selector."
+              description="Reconnect the drive, or return to Disk analysis and choose another drive."
             />
           </div>
         </PageContainer>
