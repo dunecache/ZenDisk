@@ -15,7 +15,20 @@ import {
   StorageSection,
   UpdatesSection,
 } from "./components";
-import type { SettingsSectionKey } from "@/types";
+import type { SettingsSectionKey, SettingsSectionMeta } from "@/types";
+
+/** Section metadata is static UI structure, not native data. */
+const settingsSections: SettingsSectionMeta[] = [
+  { key: "general", label: "General", description: "Defaults and background behavior." },
+  { key: "appearance", label: "Appearance", description: "Theme and interface density." },
+  { key: "notifications", label: "Notifications", description: "Which results reach you." },
+  { key: "cleanup", label: "Cleanup", description: "Safety defaults for removal." },
+  { key: "organization", label: "Organization", description: "Rule application behavior." },
+  { key: "storage", label: "Storage", description: "Scanned locations and drives." },
+  { key: "privacy", label: "Privacy", description: "What ZenDisk remembers." },
+  { key: "license", label: "License", description: "Plan and entitlement." },
+  { key: "updates", label: "Updates", description: "Current version and signed updates." },
+];
 
 const sectionComponents: Record<SettingsSectionKey, ComponentType> = {
   general: GeneralSection,
@@ -37,7 +50,7 @@ export function SettingsScreen() {
 
   const loading = isLoading || !data;
   const denied = data?.access === "denied";
-  const sections = data?.sections ?? [];
+  const sections = settingsSections;
   const filtered = sections.filter((item) => {
     const text = query.trim().toLowerCase();
     return text === "" || item.label.toLowerCase().includes(text);
