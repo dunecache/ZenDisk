@@ -28,7 +28,9 @@ ZenDisk/
 │   └── ui/                       # Design-system primitives (@zendisk/ui)
 ├── docs/
 │   ├── tauri-v2-migration.md     # Runtime migration plan and decisions
-│   └── updater-key-rotation.md   # Bridge-release procedure for future key changes
+│   ├── updater-key-rotation.md   # Bridge-release procedure for future key changes
+│   └── release-policy.md         # Channels, uninstall behavior, changelog practice
+├── CHANGELOG.md
 ├── package.json
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json

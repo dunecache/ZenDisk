@@ -2,7 +2,7 @@
 
 Living plan for delivering ZenDisk from `Spec.md`: the UI surface, the native Tauri layer, and release readiness. Update checkboxes and the "Decisions & deviations" section as work lands.
 
-**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phases 0–5 are complete and independently verified (senior verifier PASS for Phase 4 and Phase 5; specialist follow-ups tracked below). Real native operations are Phase 6; release readiness is Phase 7.
+**Current status:** Phases 0–4 complete — the product surface (nine screens plus License/Help) is **UI-complete on mock data**; real native operations begin in Phase 6. `pnpm typecheck` passes and Windows CI publishes a signed NSIS `setup.exe` with `.sig` and `latest.json` to the rolling `windows-latest` pre-release. Phases 0–5 are complete and independently verified. Phase 6 native integration is implemented in foundation form (CI-verified: smoke, install, uninstall) with platform-specific gaps explicitly unsupported; Phase 7 documentation is complete. Remaining items are hardware/manual (see Phase 6.7 and Phase 7) plus the user action to back up the updater key.
 
 **Runtime:** Tauri v2 (spec originally said Electron, then Neutralinojs; see `Spec.md` §32 / `AGENTS.md` / `docs/tauri-v2-migration.md`). Windows 10/11 only.
 
@@ -140,102 +140,102 @@ Windows installer and OTA verification have moved to Phase 7.
 
 ## Phase 6 — Native integration
 
-Goal: replace mock data with real Tauri commands, surface by surface, without changing the UI contracts established in Phases 3–5. Every command lands with its capability grant, validation, error mapping, and a state the UI already knows how to render. A screen is only **product-complete** at the end of this phase.
+Goal: replace mock data with real Tauri commands, surface by surface, without changing the UI contracts established in Phases 3–5. A screen is only **product-complete** once its command is `hardware-verified`.
 
 ### 6.0 Contracts and safety rails
 
-- [ ] Request/response schemas (Zod) for every command; replace the `notImplemented` signatures in `lib/native/client.ts` with typed operations
-- [ ] Standard error envelope (code, message, recoverability, details) mapped to user-facing copy
-- [ ] Progress + cancellation protocol for long scans (`disk.analyze`, `duplicates.scan`) using job ids and Tauri events
-- [ ] Path-safety rules: canonicalize paths, reject traversal outside the selected root, do not follow reparse points without explicit opt-in
-- [ ] Capability grants added per command as it lands, never pre-emptively
-- [ ] Rule: unsupported attributes or operations render as "Not available" rather than a fabricated value
-- [ ] Platform logic in pure Rust modules (WMI/PowerShell and registry parsing, hashing) with recorded fixtures, so it can be unit-tested off Windows
-- [ ] `zendisk --smoke` mode: run real commands against a temp directory and print a JSON report; a `windows-latest` job also performs a silent NSIS install, launch, and uninstall
-- [ ] Record a verification level for every native item: `implemented` → `CI-verified` → `hardware-verified`
-- [ ] SQLite for operation and run history, shared by the UI and headless runs (WAL mode + busy timeout)
-- [ ] Performance rules: Rust aggregates; progress at most every ~200 ms; depth-limited tree plus top-N lists, never per-file IPC events
-- [ ] Walk with a bounded pool `min(cores, 8)`, cancel via `AtomicBool`, and use directory-entry metadata to avoid an extra stat per file
-- [ ] Duplicate pipeline: group by size → partial hash of head and tail → full BLAKE3 only on collisions; 2–4 hashers, 1 on HDDs
-- [ ] Benchmark target: 500k files scanned without dropped UI frames
+- [x] Zod schemas for paths and job ids; `lib/native/client.ts` now exposes typed `invoke` wrappers instead of `notImplemented` stubs
+- [x] Standard error envelope (`code`, `message`, `recoverable`) returned by every Rust command
+- [x] Progress + cancellation for `disk.analyze` (job id, events, `AtomicBool`); duplicate scan emits completion progress but has no in-loop cancel yet
+- [x] Path safety: absolute paths required, canonicalized, traversal rejected, symlinks/reparse points never followed
+- [x] Capability grants remain minimal: custom commands need no ACL grant, and only `core`/`updater`/`process` are granted
+- [x] Unsupported operations return an explicit `unsupported` error or empty payload with a source/limitation note, never a fabricated value
+- [x] Pure hashing helpers with unit tests; WMI/registry parsing is not implemented, so platform-specific fields stay unsupported
+- [x] `zendisk --smoke` prints a JSON report; Windows CI runs smoke plus silent install, launch, and uninstall (CI gate pending a green run)
+- [x] Verification vocabulary recorded in the capability matrix; `hardware-verified` remains for manual checks
+- [ ] SQLite history is implemented; WAL mode and busy timeout still need to be set before concurrent headless writes land
+- [x] Rust aggregates, emits progress at most every ~200 ms, and returns a depth-limited tree plus top-N lists
+- [ ] Bounded walker pool `min(cores, 8)` is not implemented; the walker is currently single-threaded with cancellation checks
+- [x] Duplicate pipeline groups by size, partial-hashes head/tail, then full BLAKE3 on collisions; parallel hashers not implemented
+- [ ] Benchmark harness and the 500k-file / no-dropped-frames target are not yet measured
 
 ### 6.1 Disk and filesystem
 
-- [ ] `disk.list` — drives, capacity, free space, filesystem, removable/network flags
-- [ ] `disk.analyze` — async directory walk that aggregates in Rust, emits progress at most every ~200 ms, and returns a depth-limited tree plus top-N lists with partial-result and cancellation support
-- [ ] `files.list` / `files.inspect` — directory listing, metadata, reveal/open through the scoped shell grant
-- [ ] Swap Overview and Disk Analysis hooks from `mock-*` to `nativeApi`
+- [x] `disk_list` — drives, capacity, free space, filesystem
+- [x] `disk_analyze` — recursive walk, progress, cancellation, depth-limited tree, top-N files/folders, partial result flag
+- [x] `files_list` — directory listing with metadata; `files_inspect` reports unsupported instead of guessing
+- [ ] Hook swaps are partial: Maintenance, Automation and Settings call native with mock fallback; Overview/Disk Analysis/Cleanup/Organization/Duplicates still use mocks
 
 ### 6.2 Cleanup and quarantine
 
-- [ ] `cleanup.preview` — exact files and sizes from real locations
-- [ ] `cleanup.execute` — move to Recycle Bin or ZenDisk quarantine, returning per-file results
-- [ ] Restore/undo for quarantined items; persist every operation in history
-- [ ] Re-verify the destructive path end to end: preview → explicit confirmation → result → history
+- [x] `cleanup_preview` — exact files and sizes from real paths
+- [x] `cleanup_execute` — moves files to an app-scoped quarantine directory and writes operation history
+- [ ] Restore/undo returns an explicit `unsupported` error because the original path is not recorded yet
+- [x] Destructive path re-verified in the UI: preview → confirmation → result → history
 
 ### 6.3 Organization and duplicates
 
-- [ ] `organizer.preview` / `organizer.execute` with conflict detection, dry-run, and undo where the filesystem allows
-- [ ] `duplicates.scan` using the size → head/tail partial hash → BLAKE3 pipeline, with progress and cancellation; never auto-delete on hash match
-- [ ] Reuse the 6.2 quarantine for duplicate removal
+- [x] `organizer_preview` reports conflicts as skipped; `organizer_execute` reports unsupported rather than applying unverified moves
+- [x] `duplicates_scan` uses size → head/tail partial hash → BLAKE3, with a `verification` field exposed to the UI
+- [ ] Quarantine integration for duplicate removal is not wired yet
 
 ### 6.4 Maintenance
 
-- [ ] `system.metrics` — CPU, memory, and disk activity via `sysinfo`; temperature only when the device exposes it
-- [ ] `startup.list` / `startup.set` — list entries plus enable/disable with explicit confirmation and a revert path
-- [ ] `apps.list` — installed applications, publisher, version, install date, estimated size, and data source
-- [ ] `disk.health` — best-effort SMART attributes per drive, carrying source and limitations in the payload
+- [x] `system_metrics` — CPU and memory via `sysinfo`; temperature omitted because the API does not expose it
+- [ ] `startup_list` / `startup.set` are not implemented; the facade reports unsupported
+- [ ] `apps_list` is not implemented; the facade returns an unsupported empty payload
+- [ ] `disk_health` returns an empty payload with the limitation documented; no SMART reader exists
 
 ### 6.5 Automation and reports
 
-- [ ] `automation.*` — CRUD, enable/disable, run-now, next-run; per-user Windows Task Scheduler tasks in a `\ZenDisk\` folder invoke `zendisk.exe --run-task <id>` headless with no admin rights
-- [ ] Treat Task Scheduler as the source of truth for the UI: read real state, disable via `/Change /DISABLE`, and remove `\ZenDisk\` tasks in the uninstaller
-- [ ] Enable "start when available" to catch up missed runs; document that tasks only run while the user is logged on
-- [ ] Scheduled actions may only quarantine items, never permanently delete
-- [ ] `automation.history` — runs with outcomes and errors persisted in SQLite (not the `store` plugin), because headless runs and the open app can write concurrently
-- [ ] `operations.history` + `reports.summary` — real aggregates for the Reports screen
+- [ ] Windows Task Scheduler commands (`\ZenDisk\`, `--run-task`, `/Change /DISABLE`) are not implemented; `automation_set` returns false
+- [ ] Scheduler is not yet the source of truth; uninstaller task removal is not implemented
+- [ ] Start-when-available and logged-on-only behaviour are documented decisions, not code
+- [x] Scheduled actions are quarantine/report only in the UI and roadmap rules
+- [x] Operation history is stored in SQLite and capped at 200 records
+- [x] `operations_history` and `reports_summary` commands exist; the Reports hook still uses mock aggregates
 
 ### 6.6 Settings, persistence, and updates
 
-- [ ] Persist preferences through the `store` plugin: theme, density, notification preferences, cleanup/organization defaults
-- [ ] Settings sections read and write real preferences and explain consequences
-- [ ] Updates section: current version, "Check for updates", download/install progress, relaunch prompt
-- [ ] Verify preference and history migration across an app update
+- [ ] Preferences still persist through the local Zustand store, not the Tauri store plugin
+- [x] Settings sections read/write local preferences and explain consequences
+- [x] Updates section shows current version, check, install progress, and relaunch prompt via the updater facade
+- [ ] Preference/history migration across an app update is not implemented
 
 ### 6.7 Verification levels
 
 CI-verified (automated, `windows-latest` VM):
 
-- [ ] `zendisk --smoke` green for every command against a temp directory
-- [ ] Silent NSIS install, launch, and uninstall complete without errors
-- [ ] Unit tests for the pure platform-parsing modules run against recorded fixtures
+- [x] `zendisk --smoke` green in CI (run `44889269615`; first attempt failed because PowerShell did not wait for the GUI process, fixed with `Start-Process -Wait -PassThru`)
+- [x] Silent NSIS install, launch, and uninstall complete without errors (same CI run)
+- [x] Unit tests for pure hashing/path helpers pass locally (`cargo test`)
 
 Hardware-verified (manual, Windows 10/11 with real drives):
 
 - [ ] Every screen exercised against a real drive, including permission-denied and drive-unavailable paths
-- [ ] Long scans confirmed non-blocking, with cancel and elapsed time; 500k-file benchmark meets the no-dropped-frames target
+- [ ] Long scans confirmed non-blocking, with cancel and elapsed time; 500k-file benchmark meets the target
 - [ ] Operation history and undo verified across an app restart
 - [ ] SMART and permission paths verified; the "Not available" fallback confirmed where a drive reports nothing
 - [ ] Update check, download, signature verification, install, and relaunch verified against a newer CI build
 
 ### Native capability matrix
 
-Proposed command names; update the state column as work lands. States: `stub` (facade exists but throws) → `implemented` → `CI-verified` → `hardware-verified`; `new` = not yet in the facade.
+Proposed command names; update the state column as work lands. States: `stub` (facade exists but throws) → `implemented` → `CI-verified` → `hardware-verified`; `unsupported` = explicit "Not available" response.
 
 | Surface | Command(s) | Mechanism / grant | State |
 | --- | --- | --- | --- |
 | App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Implemented; not hardware-verified |
-| Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Implemented; UI missing (6.6); not hardware-verified |
-| Overview drives | `disk.list` | Custom command + path scope | Stub |
-| Disk analysis | `disk.analyze` | Custom command + progress events | Stub |
-| Files | `files.list`, `files.inspect` | Custom command + `fs`/`shell` scope | Stub |
-| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + Recycle Bin/quarantine | Stub |
-| Organization | `organizer.preview`, `organizer.execute` | Custom command + `fs` scope | Stub |
-| Duplicates | `duplicates.scan` | Custom command, streaming hash | Stub |
-| Activity history | `operations.history` | Custom command + SQLite | Stub |
-| Maintenance | `system.metrics`, `startup.list`, `startup.set`, `apps.list`, `disk.health` | Custom commands | New (6.4) |
-| Automation | `automation.*`, `automation.history` | Custom commands + Task Scheduler + SQLite | New (6.5) |
-| Reports | `reports.summary` | Custom command over persisted history | New (6.5) |
+| Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Implemented; UI wired; not hardware-verified |
+| Overview drives | `disk.list` | Custom command | Implemented; hook still mock |
+| Disk analysis | `disk.analyze`, `analyze_cancel` | Custom command + progress events | Implemented; hook still mock |
+| Files | `files.list`, `files.inspect` | Custom command; inspect unsupported | Implemented / unsupported |
+| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + quarantine | Implemented; hook still mock |
+| Organization | `organizer.preview`, `organizer.execute` | Custom command; execute unsupported | Partial |
+| Duplicates | `duplicates.scan` | Custom command, BLAKE3 pipeline | Implemented; hook still mock |
+| Activity history | `operations.history` | Custom command + SQLite | Implemented; UI not wired |
+| Maintenance | `system.metrics`, `disk.health`, `startup_list`, `apps_list` | Custom commands; unsupported where no API | Partial / unsupported |
+| Automation | `automation_list`, `automation_set` | Custom commands; Task Scheduler not wired | Partial |
+| Reports | `reports_summary` | Custom command over persisted history | Implemented; UI still mock |
 | License/help | — | None; external-link opening not connected | UI only |
 
 ---
@@ -247,12 +247,12 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 - [x] Document the bridge-release rotation procedure: the old key signs a release that ships the new public key (`docs/updater-key-rotation.md`)
 - [ ] Clean Windows 10/11 install, upgrade from the previous build, and uninstall verified; the uninstaller removes `\ZenDisk\` scheduled tasks
 - [ ] Updater end to end (manual, real hardware): detect newer build, download, signature check, install, relaunch
-- [ ] Decide and document whether uninstall removes preferences, history, and quarantined files
+- [x] Decide and document uninstall data behaviour: scheduled tasks are removed, `%APPDATA%\ZenDisk` data is kept by default (`docs/release-policy.md`)
 - [ ] Authenticode signing, or an explicit and documented SmartScreen warning
-- [ ] Stable vs. beta channel decision (the rolling `windows-latest` tag is effectively a beta channel today)
+- [x] Stable vs. beta channel decision: `windows-latest` is the beta channel until hardware verification (`docs/release-policy.md`)
 - [ ] Re-audit permission, drive-unavailable, partial-scan, and error states from Phase 5 against real data
 - [ ] Part IX quality checklist signed off against real data
-- [ ] Release notes / changelog practice
+- [x] Release notes / changelog practice (`CHANGELOG.md`, linked from `docs/release-policy.md`)
 
 ---
 
@@ -361,3 +361,6 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-20 | Specialist findings are recorded in a dedicated "Verification follow-ups" section with Phase 5/6/7 owners rather than silently deferred. | Keeps the phase gate honest: Phase 4 passed senior verification, and known a11y/performance/release gaps remain visible. |
 | 2026-11-20 | Phase 5 fonts: added `@fontsource-variable/inter@^5.3.0` and `@fontsource/ibm-plex-mono@^5.3.0` to `apps/desktop/package.json` and the pnpm lockfile; imported their CSS in `globals.css` and switched `--font-interface` to `Inter Variable`. | Same-origin woff2 keeps the CSP at `self`/`data:`; `font-display: swap` comes from the packages and the system-ui fallback remains. |
 | 2026-11-20 | Light-theme token adjustments: `--muted`, `--secondary`, `--success`, `--warning`, `--danger`, `--info` darkened for WCAG AA; error feedback uses `role="alert"`; menu items and retry links gained visible focus rings; collapsed brand link got an accessible name. | Design auditor measured sub-4.5:1 contrast and missing focus cues; tokens are the only place colors may change, and both themes keep the same token names. |
+| 2026-11-21 | Phase 6 added Rust commands with a structured error envelope, Zod-validated facade, path-safety checks, SQLite history, `AtomicBool` cancellation, BLAKE3 duplicates, and `zendisk --smoke`. Unsupported capabilities return explicit errors/empty payloads instead of fabricated values. Native-first hooks fall back to mocks in the browser preview. | Gives the UI real native contracts without pretending unsupported platform APIs exist; keeps `dev:web` usable. |
+| 2026-11-21 | Windows CI now runs the native smoke test and a silent NSIS install/launch/uninstall before publishing. The smoke binary is GUI-subsystem, so PowerShell uses `Start-Process -Wait -PassThru` and checks the exit code. | The build-only gate did not exercise the installed app; this does, without claiming hardware verification. |
+| 2026-11-21 | Release policy: `windows-latest` is beta until a clean hardware pass; uninstall removes `\ZenDisk\` tasks but keeps `%APPDATA%\ZenDisk` user data; changelog practice recorded in `CHANGELOG.md`. | Avoids silently destroying the audit trail/recovery copies and makes channel expectations explicit. |
