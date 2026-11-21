@@ -7,3 +7,4 @@ export * from "./sections/organization/OrganizationSection";
 export * from "./sections/storage/StorageSection";
 export * from "./sections/privacy/PrivacySection";
 export * from "./sections/license/LicenseSection";
+export * from "./sections/updates/UpdatesSection";

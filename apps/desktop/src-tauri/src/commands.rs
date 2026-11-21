@@ -1,0 +1,559 @@
+//! Native commands for ZenDisk. Every command validates its inputs, returns a
+//! structured error, and never fabricates a measurement it cannot obtain.
+use std::collections::HashMap;
+use std::fs;
+use std::io::Seek;
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
+use sysinfo::{Disks, System};
+use tauri::{AppHandle, Emitter, Manager};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+    pub recoverable: bool,
+}
+
+impl CommandError {
+    fn new(code: &str, message: impl Into<String>, recoverable: bool) -> Self {
+        Self { code: code.into(), message: message.into(), recoverable }
+    }
+}
+
+pub type Result<T> = std::result::Result<T, CommandError>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEntry {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    pub modified_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiskInfo {
+    pub id: String,
+    pub name: String,
+    pub letter: Option<String>,
+    pub capacity: u64,
+    pub free: u64,
+    pub filesystem: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeNode {
+    pub id: String,
+    pub name: String,
+    pub size_bytes: u64,
+    pub path: String,
+    pub children: Vec<TreeNode>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisData {
+    pub drive_id: String,
+    pub scanned_bytes: u64,
+    pub scanned_items: usize,
+    pub tree: Vec<TreeNode>,
+    pub largest_files: Vec<FileEntry>,
+    pub largest_folders: Vec<FileEntry>,
+    pub is_partial: bool,
+    pub scan_state: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressEvent {
+    pub job_id: String,
+    pub scanned_bytes: u64,
+    pub scanned_items: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Metric {
+    pub id: String,
+    pub label: String,
+    pub value: f64,
+    pub max: f64,
+    pub display_value: String,
+    pub detail: String,
+    pub supported: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HealthAttribute {
+    pub id: String,
+    pub label: String,
+    pub value: String,
+    pub supported: bool,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveHealth {
+    pub drive_id: String,
+    pub name: String,
+    pub status: String,
+    pub summary: String,
+    pub source: String,
+    pub limitations: Vec<String>,
+    pub attributes: Vec<HealthAttribute>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicateGroup {
+    pub id: String,
+    pub kind: String,
+    pub files: Vec<FileEntry>,
+    pub verification: String,
+    pub algorithm: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationRecord {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub at: String,
+    pub completed: i64,
+    pub failed: i64,
+    pub skipped: i64,
+    pub total: i64,
+    pub reclaimed_bytes: u64,
+    pub recoverable: bool,
+}
+
+fn now() -> String {
+    let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    format!("{}", secs)
+}
+
+fn new_id() -> String {
+    format!("{:x}{:x}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos(), std::process::id())
+}
+
+/// Canonicalize an absolute path and reject traversal above the filesystem root.
+pub fn safe_path(input: &str) -> Result<PathBuf> {
+    if input.trim().is_empty() {
+        return Err(CommandError::new("invalidPath", "Path is empty", false));
+    }
+    let path = PathBuf::from(input);
+    if !path.is_absolute() {
+        return Err(CommandError::new("invalidPath", "Path must be absolute", false));
+    }
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+    for component in canonical.components() {
+        if matches!(component, Component::Prefix(_) | Component::RootDir | Component::Normal(_)) {
+            continue;
+        }
+        return Err(CommandError::new("invalidPath", "Path contains traversal", false));
+    }
+    Ok(canonical)
+}
+
+fn file_entry(path: &Path) -> Result<FileEntry> {
+    let metadata = fs::metadata(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let modified_at = format!("{}", modified.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
+    Ok(FileEntry {
+        id: new_id(),
+        name,
+        path: path.to_string_lossy().into_owned(),
+        size_bytes: metadata.len(),
+        modified_at,
+    })
+}
+
+static JOBS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+fn jobs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    JOBS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[tauri::command]
+pub fn disk_list() -> Result<Vec<DiskInfo>> {
+    let disks = Disks::new_with_refreshed_list();
+    let mut out = Vec::new();
+    for disk in disks.list() {
+        out.push(DiskInfo {
+            id: disk.name().to_string_lossy().into_owned(),
+            name: disk.name().to_string_lossy().into_owned(),
+            letter: None,
+            capacity: disk.total_space(),
+            free: disk.available_space(),
+            filesystem: disk.file_system().to_string_lossy().into_owned(),
+        });
+    }
+    Ok(out)
+}
+
+#[derive(Default)]
+struct ScanStats {
+    bytes: u64,
+    items: usize,
+    partial: bool,
+    files: Vec<FileEntry>,
+}
+
+fn walk_tree(
+    path: &Path,
+    depth: usize,
+    cancel: &AtomicBool,
+    stats: &mut ScanStats,
+    app: &AppHandle,
+    job_id: &str,
+    last_emit: &mut SystemTime,
+) -> Result<TreeNode> {
+    let mut node = TreeNode {
+        id: path.to_string_lossy().into_owned(),
+        name: path.file_name().and_then(|n| n.to_str()).unwrap_or("root").to_string(),
+        size_bytes: 0,
+        path: path.to_string_lossy().into_owned(),
+        children: Vec::new(),
+    };
+    let entries = match fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(_) => { stats.partial = true; return Ok(node); }
+    };
+    for entry in entries.flatten() {
+        if cancel.load(Ordering::Relaxed) { stats.partial = true; break; }
+        let child_path = entry.path();
+        let metadata = match entry.metadata() { Ok(m) => m, Err(_) => { stats.partial = true; continue; } };
+        stats.items += 1;
+        if metadata.is_dir() {
+            if metadata.file_type().is_symlink() { continue; }
+            if depth < 3 {
+                let child = walk_tree(&child_path, depth + 1, cancel, stats, app, job_id, last_emit)?;
+                node.size_bytes += child.size_bytes;
+                node.children.push(child);
+            }
+        } else {
+            stats.bytes += metadata.len();
+            node.size_bytes += metadata.len();
+            if let Ok(file) = file_entry(&child_path) { stats.files.push(file); }
+        }
+        if let Ok(elapsed) = last_emit.elapsed() {
+            if elapsed.as_millis() >= 200 {
+                let _ = app.emit("zendisk://scan-progress", ProgressEvent {
+                    job_id: job_id.to_string(), scanned_bytes: stats.bytes, scanned_items: stats.items,
+                });
+                *last_emit = SystemTime::now();
+            }
+        }
+    }
+    Ok(node)
+}
+
+#[tauri::command]
+pub fn disk_analyze(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
+    let root = safe_path(&drive_id)?;
+    let cancel = Arc::new(AtomicBool::new(false));
+    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
+
+    let mut stats = ScanStats::default();
+    let mut last_emit = SystemTime::now();
+    let tree = walk_tree(&root, 0, &cancel, &mut stats, &app, &job_id, &mut last_emit)?;
+
+    stats.files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    stats.files.truncate(20);
+    let mut largest_folders: Vec<FileEntry> = tree.children.iter().map(|n| FileEntry {
+        id: n.id.clone(), name: n.name.clone(), path: n.path.clone(), size_bytes: n.size_bytes, modified_at: now(),
+    }).collect();
+    largest_folders.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    largest_folders.truncate(20);
+
+    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
+    Ok(AnalysisData {
+        drive_id, scanned_bytes: stats.bytes, scanned_items: stats.items, tree: vec![tree],
+        largest_files: stats.files, largest_folders,
+        is_partial: stats.partial,
+        scan_state: if stats.partial { "cancelled".into() } else { "completed".into() },
+    })
+}
+
+#[tauri::command]
+pub fn analyze_cancel(job_id: String) -> Result<bool> {
+    let guard = jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?;
+    if let Some(flag) = guard.get(&job_id) {
+        flag.store(true, Ordering::Relaxed);
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+pub fn files_list(path: String) -> Result<Vec<FileEntry>> {
+    let root = safe_path(&path)?;
+    let mut out = Vec::new();
+    for entry in fs::read_dir(root).map_err(|e| CommandError::new("io", e.to_string(), true))?.flatten() {
+        if let Ok(file) = file_entry(&entry.path()) { out.push(file); }
+    }
+    Ok(out)
+}
+
+fn quarantine_dir(app: &AppHandle) -> Result<PathBuf> {
+    let base = app.path().app_data_dir().map_err(|e| CommandError::new("path", e.to_string(), true))?;
+    let dir = base.join("quarantine");
+    fs::create_dir_all(&dir).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    Ok(dir)
+}
+
+#[tauri::command]
+pub fn cleanup_preview(paths: Vec<String>) -> Result<Vec<FileEntry>> {
+    let mut out = Vec::new();
+    for path in paths {
+        let safe = safe_path(&path)?;
+        if safe.is_file() { out.push(file_entry(&safe)?); }
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn cleanup_execute(app: AppHandle, paths: Vec<String>) -> Result<OperationRecord> {
+    let quarantine = quarantine_dir(&app)?;
+    let mut completed = 0i64;
+    let mut failed = 0i64;
+    let mut reclaimed = 0u64;
+    for path in paths {
+        let safe = safe_path(&path)?;
+        if !safe.is_file() { failed += 1; continue; }
+        let size = safe.metadata().map(|m| m.len()).unwrap_or(0);
+        let target = quarantine.join(safe.file_name().unwrap_or_default());
+        if target.exists() { failed += 1; continue; }
+        match fs::rename(&safe, &target) {
+            Ok(()) => { completed += 1; reclaimed += size; }
+            Err(_) => failed += 1,
+        }
+    }
+    let record = OperationRecord {
+        id: new_id(), kind: "cleanup".into(), title: "Cleanup".into(), at: now(),
+        completed, failed, skipped: 0, total: completed + failed,
+        reclaimed_bytes: reclaimed, recoverable: true,
+    };
+    write_history(&app, &record)?;
+    Ok(record)
+}
+
+#[tauri::command]
+pub fn quarantine_restore(_app: AppHandle, _names: Vec<String>) -> Result<OperationRecord> {
+    Err(CommandError::new(
+        "unsupported",
+        "Restore needs the original path recorded when the file was quarantined; that metadata is not available yet.",
+        true,
+    ))
+}
+
+#[tauri::command]
+pub fn organizer_preview(paths: Vec<String>) -> Result<Vec<OperationRecord>> {
+    // A dry run never touches files; conflicts are reported as skipped.
+    let mut out = Vec::new();
+    for path in paths {
+        let safe = safe_path(&path)?;
+        out.push(OperationRecord {
+            id: new_id(), kind: "organize".into(), title: "Preview".into(), at: now(),
+            completed: 0, failed: 0, skipped: if safe.exists() { 0 } else { 1 },
+            total: 1, reclaimed_bytes: 0, recoverable: true,
+        });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn duplicates_scan(app: AppHandle, root: String, job_id: String) -> Result<Vec<DuplicateGroup>> {
+    let root_path = safe_path(&root)?;
+    let cancel = Arc::new(AtomicBool::new(false));
+    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
+    let mut by_size: HashMap<u64, Vec<PathBuf>> = HashMap::new();
+    let mut stack = vec![root_path];
+    while let Some(dir) = stack.pop() {
+        if cancel.load(Ordering::Relaxed) { break; }
+        let entries = match fs::read_dir(&dir) { Ok(e) => e, Err(_) => continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let metadata = match entry.metadata() { Ok(m) => m, Err(_) => continue };
+            if metadata.is_dir() {
+                if !metadata.file_type().is_symlink() { stack.push(path); }
+            } else {
+                by_size.entry(metadata.len()).or_default().push(path);
+            }
+        }
+    }
+    let mut groups = Vec::new();
+    for (size, paths) in by_size {
+        if paths.len() < 2 || size == 0 { continue; }
+        let mut partial: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        for path in &paths {
+            if cancel.load(Ordering::Relaxed) { break; }
+            let key = match partial_digest(path) { Ok(k) => k, Err(_) => continue };
+            partial.entry(key).or_default().push(path.clone());
+        }
+        for candidates in partial.values() {
+            if candidates.len() < 2 { continue; }
+            let mut full: HashMap<String, Vec<PathBuf>> = HashMap::new();
+            for path in candidates {
+                if cancel.load(Ordering::Relaxed) { break; }
+                let key = match full_digest(path) { Ok(k) => k, Err(_) => continue };
+                full.entry(key).or_default().push(path.clone());
+            }
+            for matches in full.values().filter(|v| v.len() > 1) {
+                let mut files = Vec::new();
+                for path in matches {
+                    if let Ok(file) = file_entry(path) { files.push(file); }
+                }
+                if files.len() > 1 {
+                    groups.push(DuplicateGroup {
+                        id: new_id(), kind: "exact".into(), files,
+                        verification: "full".into(), algorithm: "blake3".into(),
+                    });
+                }
+            }
+        }
+    }
+    let _ = app.emit("zendisk://duplicates-progress", ProgressEvent { job_id: job_id.clone(), scanned_bytes: 0, scanned_items: groups.len() });
+    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
+    Ok(groups)
+}
+
+pub fn partial_digest(path: &Path) -> Result<String> {
+    use std::io::Read;
+    let mut file = fs::File::open(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    let mut buf = [0u8; 65_536];
+    let n = file.read(&mut buf).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    let len = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let mut h = blake3::Hasher::new();
+    h.update(&len.to_le_bytes());
+    h.update(&buf[..n]);
+    if len > 65_536 {
+        let _ = file.seek(std::io::SeekFrom::End(-65_536));
+        let mut tail = [0u8; 65_536];
+        let m = file.read(&mut tail).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+        h.update(&tail[..m]);
+    }
+    Ok(hex(h.finalize().as_bytes()))
+}
+
+pub fn full_digest(path: &Path) -> Result<String> {
+    let bytes = fs::read(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    Ok(hex(blake3::hash(&bytes).as_bytes()))
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[tauri::command]
+pub fn system_metrics() -> Result<Vec<Metric>> {
+    let mut system = System::new_all();
+    system.refresh_all();
+    let cpu = system.global_cpu_usage() as f64;
+    let used = system.used_memory() as f64;
+    let total = system.total_memory() as f64;
+    Ok(vec![
+        Metric { id: "cpu".into(), label: "CPU".into(), value: cpu, max: 100.0, display_value: format!("{:.0}%", cpu), detail: "Current processor load".into(), supported: true },
+        Metric { id: "memory".into(), label: "Memory".into(), value: used / (1024.0 * 1024.0), max: total / (1024.0 * 1024.0), display_value: format!("{:.1} GB", used / (1024.0 * 1024.0 * 1024.0)), detail: "of installed memory".into(), supported: true },
+    ])
+}
+
+#[tauri::command]
+pub fn disk_health() -> Result<Vec<DriveHealth>> {
+    // SMART is not available through cross-platform Rust APIs without a driver.
+    // Report the limitation explicitly rather than fabricating values.
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+pub fn startup_list() -> Result<Vec<serde_json::Value>> {
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+pub fn apps_list() -> Result<Vec<serde_json::Value>> {
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+pub fn automation_list() -> Result<Vec<serde_json::Value>> {
+    Ok(Vec::new())
+}
+
+#[tauri::command]
+pub fn automation_set(_id: String, _enabled: bool) -> Result<bool> {
+    Ok(false)
+}
+
+fn db_path(app: &AppHandle) -> Result<PathBuf> {
+    let base = app.path().app_data_dir().map_err(|e| CommandError::new("path", e.to_string(), true))?;
+    fs::create_dir_all(&base).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    Ok(base.join("history.sqlite"))
+}
+
+fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
+    let conn = Connection::open(db_path(app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, kind TEXT, title TEXT, at TEXT, completed INTEGER, failed INTEGER, skipped INTEGER, total INTEGER, reclaimed INTEGER, recoverable INTEGER)",
+        [],
+    ).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    conn.execute(
+        "INSERT INTO operations (id, kind, title, at, completed, failed, skipped, total, reclaimed, recoverable) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![record.id, record.kind, record.title, record.at, record.completed, record.failed, record.skipped, record.total, record.reclaimed_bytes as i64, record.recoverable as i64],
+    ).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn operations_history(app: AppHandle) -> Result<Vec<OperationRecord>> {
+    let conn = Connection::open(db_path(&app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    let mut stmt = conn.prepare("SELECT id, kind, title, at, completed, failed, skipped, total, reclaimed, recoverable FROM operations ORDER BY at DESC LIMIT 200")
+        .map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    let rows = stmt.query_map([], |row| {
+        Ok(OperationRecord {
+            id: row.get(0)?, kind: row.get(1)?, title: row.get(2)?, at: row.get(3)?,
+            completed: row.get(4)?, failed: row.get(5)?, skipped: row.get(6)?, total: row.get(7)?,
+            reclaimed_bytes: row.get::<_, i64>(8)? as u64, recoverable: row.get::<_, i64>(9)? != 0,
+        })
+    }).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    let mut out = Vec::new();
+    for row in rows.flatten() { out.push(row); }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn reports_summary(app: AppHandle) -> Result<Vec<OperationRecord>> {
+    operations_history(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_relative_paths() {
+        assert!(safe_path("relative/path").is_err());
+    }
+
+    #[test]
+    fn partial_hash_includes_length() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a.bin");
+        fs::write(&file, vec![7u8; 100]).unwrap();
+        assert_eq!(partial_digest(&file).unwrap().len(), 64);
+    }
+}

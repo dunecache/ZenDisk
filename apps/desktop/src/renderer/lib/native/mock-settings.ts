@@ -19,6 +19,7 @@ export const settingsData: SettingsData = {
     { key: "storage", label: "Storage", description: "Scanned locations and drives." },
     { key: "privacy", label: "Privacy", description: "What ZenDisk remembers." },
     { key: "license", label: "License", description: "Plan and entitlement." },
+    { key: "updates", label: "Updates", description: "Current version and signed updates." },
   ],
 };
 

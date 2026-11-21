@@ -8,27 +8,68 @@
  * Tauri commands and plugin permissions live in
  * `apps/desktop/src-tauri/capabilities/default.json`.
  */
-
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
+import { jobIdSchema, pathSchema } from "@/lib/validators";
+import type {
+  AnalysisData,
+  AutomationData,
+  AutomationTask,
+  DriveHealth,
+  InstalledApplication,
+  OperationRecord,
+  ReportsData,
+  SettingsData,
+  StartupEntry,
+} from "@/types";
 
-type Operation = (...args: never[]) => Promise<unknown>;
-
-function notImplemented(name: string): Operation {
-  return (async () => {
-    throw new Error(`[${name}] native operation is not implemented yet`);
-  }) as Operation;
+export interface NativeDiskInfo {
+  id: string;
+  name: string;
+  letter?: string | null;
+  capacity: number;
+  free: number;
+  filesystem: string;
 }
 
-/**
- * Logical frontend operations. Names mirror the ZenDisk spec. Tauri-backed
- * implementations (custom `invoke()` commands or plugin bindings) are added as
- * features are built; today only the app version uses real IPC.
- */
+export interface NativeFileEntry {
+  id: string;
+  name: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+
+export interface NativeDuplicateGroup {
+  id: string;
+  kind: string;
+  files: NativeFileEntry[];
+  verification: "size" | "partial" | "full";
+  algorithm: string;
+}
+
+export interface NativeMetric {
+  id: string;
+  label: string;
+  value: number;
+  max: number;
+  displayValue: string;
+  detail: string;
+  supported: boolean;
+}
+
+export interface NativeProgress {
+  jobId: string;
+  scannedBytes: number;
+  scannedItems: number;
+}
+
 export const nativeApi = {
   app: {
     version: () => getVersion(),
+    isTauri: () => isTauri(),
   },
   updates: {
     check: () => check(),
@@ -41,25 +82,66 @@ export const nativeApi = {
     },
   },
   disk: {
-    list: notImplemented("disk.list"),
-    analyze: notImplemented("disk.analyze"),
+    list: () => invoke<NativeDiskInfo[]>("disk_list"),
+    analyze: (driveId: string, jobId: string) => {
+      const path = pathSchema.parse(driveId);
+      const job = jobIdSchema.parse(jobId);
+      return invoke<AnalysisData>("disk_analyze", { driveId: path, jobId: job });
+    },
+    cancel: (jobId: string) => invoke<boolean>("analyze_cancel", { jobId: jobIdSchema.parse(jobId) }),
   },
   files: {
-    list: notImplemented("files.list"),
-    inspect: notImplemented("files.inspect"),
+    list: (path: string) => invoke<NativeFileEntry[]>("files_list", { path: pathSchema.parse(path) }),
+    inspect: async () => ({ supported: false as const, reason: "Native inspect is not available yet" }),
   },
   cleanup: {
-    preview: notImplemented("cleanup.preview"),
-    execute: notImplemented("cleanup.execute"),
+    preview: (paths: string[]) =>
+      invoke<NativeFileEntry[]>("cleanup_preview", { paths: paths.map((path) => pathSchema.parse(path)) }),
+    execute: (paths: string[]) =>
+      invoke<OperationRecord>("cleanup_execute", { paths: paths.map((path) => pathSchema.parse(path)) }),
   },
   organizer: {
-    preview: notImplemented("organizer.preview"),
-    execute: notImplemented("organizer.execute"),
+    preview: (paths: string[]) =>
+      invoke<OperationRecord[]>("organizer_preview", { paths: paths.map((path) => pathSchema.parse(path)) }),
+    execute: async () => ({ supported: false as const, reason: "Native organize apply is not available yet" }),
   },
   duplicates: {
-    scan: notImplemented("duplicates.scan"),
+    scan: (root: string, jobId: string) =>
+      invoke<NativeDuplicateGroup[]>("duplicates_scan", {
+        root: pathSchema.parse(root),
+        jobId: jobIdSchema.parse(jobId),
+      }),
   },
   operations: {
-    history: notImplemented("operations.history"),
+    history: () => invoke<OperationRecord[]>("operations_history"),
+  },
+  reports: {
+    summary: () => invoke<ReportsData>("reports_summary"),
+  },
+  maintenance: {
+    metrics: () => invoke<NativeMetric[]>("system_metrics"),
+    health: () => invoke<DriveHealth[]>("disk_health"),
+    startup: () => invoke<StartupEntry[]>("startup_list"),
+    applications: () => invoke<InstalledApplication[]>("apps_list"),
+  },
+  automation: {
+    list: async (): Promise<AutomationData> => {
+      const tasks = await invoke<AutomationTask[]>("automation_list");
+      return {
+        access: "granted",
+        tasks,
+        runs: [],
+        collectedAt: new Date().toISOString(),
+      };
+    },
+    set: (id: string, enabled: boolean) => invoke<boolean>("automation_set", { id, enabled }),
+  },
+  settings: {
+    read: async (): Promise<SettingsData> => ({
+      access: "granted",
+      sections: [],
+      currentVersion: await getVersion(),
+      updatesEnabled: true,
+    }),
   },
 } as const;

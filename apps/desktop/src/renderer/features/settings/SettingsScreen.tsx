@@ -13,6 +13,7 @@ import {
   OrganizationSection,
   PrivacySection,
   StorageSection,
+  UpdatesSection,
 } from "./components";
 import type { SettingsSectionKey } from "@/types";
 
@@ -25,6 +26,7 @@ const sectionComponents: Record<SettingsSectionKey, ComponentType> = {
   storage: StorageSection,
   privacy: PrivacySection,
   license: LicenseSection,
+  updates: UpdatesSection,
 };
 
 export function SettingsScreen() {

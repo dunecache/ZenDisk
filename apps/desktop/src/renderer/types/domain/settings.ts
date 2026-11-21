@@ -6,7 +6,8 @@ export type SettingsSectionKey =
   | "organization"
   | "storage"
   | "privacy"
-  | "license";
+  | "license"
+  | "updates";
 
 export interface SettingsSectionMeta {
   key: SettingsSectionKey;

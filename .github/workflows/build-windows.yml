@@ -75,6 +75,28 @@ jobs:
           }
           Get-ChildItem -Recurse $bundle | Select-Object FullName, Length
 
+      - name: Smoke test native commands
+        shell: pwsh
+        run: |
+          $binary = "apps/desktop/src-tauri/target/release/zendisk.exe"
+          if (-not (Test-Path $binary)) { throw "Native binary was not produced" }
+          & $binary --smoke
+          if ($LASTEXITCODE -ne 0) { throw "Native smoke test failed" }
+
+      - name: Silent install, launch and uninstall
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "apps/desktop/src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "NSIS installer was not produced" }
+          Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait
+          $installDir = Join-Path $env:LOCALAPPDATA "ZenDisk"
+          $app = Get-ChildItem $installDir -Filter "ZenDisk.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw "Installed application was not found" }
+          Start-Process -FilePath $app.FullName -ArgumentList "--smoke" -Wait
+          $uninstaller = Get-ChildItem $installDir -Filter "unins*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $uninstaller) { throw "Uninstaller was not found" }
+          Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait
+
       - name: Generate update manifest
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
