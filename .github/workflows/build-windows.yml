@@ -80,8 +80,14 @@ jobs:
         run: |
           $binary = "apps/desktop/src-tauri/target/release/zendisk.exe"
           if (-not (Test-Path $binary)) { throw "Native binary was not produced" }
-          & $binary --smoke
-          if ($LASTEXITCODE -ne 0) { throw "Native smoke test failed" }
+          $out = Join-Path $env:RUNNER_TEMP "zendisk-smoke.json"
+          $err = Join-Path $env:RUNNER_TEMP "zendisk-smoke.err"
+          # windows_subsystem=windows makes this a GUI process; Start-Process
+          # -Wait is required to observe its exit code and captured output.
+          $proc = Start-Process -FilePath $binary -ArgumentList "--smoke" -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          Get-Content $out
+          Get-Content $err
+          if ($proc.ExitCode -ne 0) { throw "Native smoke test failed with exit code $($proc.ExitCode)" }
 
       - name: Silent install, launch and uninstall
         shell: pwsh
@@ -92,7 +98,8 @@ jobs:
           $installDir = Join-Path $env:LOCALAPPDATA "ZenDisk"
           $app = Get-ChildItem $installDir -Filter "ZenDisk.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $app) { throw "Installed application was not found" }
-          Start-Process -FilePath $app.FullName -ArgumentList "--smoke" -Wait
+          $launched = Start-Process -FilePath $app.FullName -ArgumentList "--smoke" -Wait -PassThru
+          if ($launched.ExitCode -ne 0) { throw "Installed application smoke test failed" }
           $uninstaller = Get-ChildItem $installDir -Filter "unins*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $uninstaller) { throw "Uninstaller was not found" }
           Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait
