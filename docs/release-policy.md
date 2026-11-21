@@ -12,8 +12,9 @@
 
 ## Uninstall behaviour
 
-- The NSIS uninstaller removes the `\ZenDisk\` Windows Task Scheduler tasks so
-  no headless action survives the application.
+- Planned: the NSIS uninstaller will remove the `\ZenDisk\` Windows Task
+  Scheduler tasks so no headless action survives the application. This is **not
+  implemented yet** (Phase 6.5); no tasks are created today.
 - Preferences, operation history, and quarantined files under
   `%APPDATA%\ZenDisk` are **kept** by default. Silently deleting user data on
   uninstall would destroy the audit trail and recovery copies.
@@ -24,7 +25,8 @@
 
 - `CHANGELOG.md` follows Keep a Changelog with an `Unreleased` section.
 - Each published build adds a dated entry with the run number and a short
-  summary; the generated `latest.json` notes link to that entry.
+  summary. The generated `latest.json` notes contain the build SHA; they do not
+  yet link to a changelog entry.
 - Manual/hardware-only verification items are called out in the entry rather
   than implied complete.
 

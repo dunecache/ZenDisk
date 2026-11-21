@@ -20,7 +20,6 @@ import type {
   DriveHealth,
   InstalledApplication,
   OperationRecord,
-  ReportsData,
   SettingsData,
   StartupEntry,
 } from "@/types";
@@ -116,7 +115,7 @@ export const nativeApi = {
     history: () => invoke<OperationRecord[]>("operations_history"),
   },
   reports: {
-    summary: () => invoke<ReportsData>("reports_summary"),
+    summary: () => invoke<OperationRecord[]>("reports_summary"),
   },
   maintenance: {
     metrics: () => invoke<NativeMetric[]>("system_metrics"),

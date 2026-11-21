@@ -209,6 +209,7 @@ struct ScanStats {
     bytes: u64,
     items: usize,
     partial: bool,
+    cancelled: bool,
     files: Vec<FileEntry>,
 }
 
@@ -233,7 +234,7 @@ fn walk_tree(
         Err(_) => { stats.partial = true; return Ok(node); }
     };
     for entry in entries.flatten() {
-        if cancel.load(Ordering::Relaxed) { stats.partial = true; break; }
+        if cancel.load(Ordering::Relaxed) { stats.cancelled = true; stats.partial = true; break; }
         let child_path = entry.path();
         let metadata = match entry.metadata() { Ok(m) => m, Err(_) => { stats.partial = true; continue; } };
         stats.items += 1;
@@ -284,7 +285,13 @@ pub fn disk_analyze(app: AppHandle, drive_id: String, job_id: String) -> Result<
         drive_id, scanned_bytes: stats.bytes, scanned_items: stats.items, tree: vec![tree],
         largest_files: stats.files, largest_folders,
         is_partial: stats.partial,
-        scan_state: if stats.partial { "cancelled".into() } else { "completed".into() },
+        scan_state: if stats.cancelled {
+            "cancelled".into()
+        } else if stats.partial {
+            "failed".into()
+        } else {
+            "completed".into()
+        },
     })
 }
 
