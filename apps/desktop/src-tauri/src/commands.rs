@@ -192,10 +192,20 @@ pub fn disk_list() -> Result<Vec<DiskInfo>> {
     let disks = Disks::new_with_refreshed_list();
     let mut out = Vec::new();
     for disk in disks.list() {
+        let mount = disk.mount_point().to_string_lossy().into_owned();
+        // Windows mount points arrive as "C:"; disk_analyze requires an
+        // absolute path, so normalize to "C:\\" for the command id/scan root.
+        let root = if mount.len() == 2 && mount.as_bytes()[1] == b':' {
+            format!("{}\\", mount)
+        } else {
+            mount.clone()
+        };
+        let label = disk.name().to_string_lossy().into_owned();
+        let letter = root.chars().next().filter(|c| c.is_ascii_alphabetic()).map(|c| format!("{}:", c));
         out.push(DiskInfo {
-            id: disk.name().to_string_lossy().into_owned(),
-            name: disk.name().to_string_lossy().into_owned(),
-            letter: None,
+            id: root,
+            name: if label.is_empty() { mount } else { label },
+            letter,
             capacity: disk.total_space(),
             free: disk.available_space(),
             filesystem: disk.file_system().to_string_lossy().into_owned(),
