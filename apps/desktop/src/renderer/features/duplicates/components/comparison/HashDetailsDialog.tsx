@@ -20,7 +20,10 @@ export function HashDetailsDialog({ group, onClose }: HashDetailsDialogProps) {
               <li key={file.id} className="flex flex-col gap-[var(--space-1)] border-b border-border pb-[var(--space-2)] last:border-0">
                 <span className="text-[length:var(--text-body)]">{file.name}</span>
                 <span className="break-all text-mono text-[length:var(--text-small)] text-muted">
-                  {file.hash ?? "Hash unavailable"}
+                  {file.hash ??
+                    (group.algorithm && group.verification
+                      ? `${group.algorithm} · ${group.verification} content match`
+                      : "Hash unavailable")}
                 </span>
                 <span className="text-mono text-[length:var(--text-caption)] text-muted">{file.path}</span>
               </li>

@@ -14,7 +14,6 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { jobIdSchema, pathSchema } from "@/lib/validators";
 import type {
-  AnalysisData,
   AutomationData,
   AutomationTask,
   DriveHealth,
@@ -47,6 +46,25 @@ export interface NativeDuplicateGroup {
   files: NativeFileEntry[];
   verification: "size" | "partial" | "full";
   algorithm: string;
+}
+
+export interface NativeTreeNode {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  path: string;
+  children: NativeTreeNode[];
+}
+
+export interface NativeAnalysisData {
+  driveId: string;
+  scannedBytes: number;
+  scannedItems: number;
+  tree: NativeTreeNode[];
+  largestFiles: NativeFileEntry[];
+  largestFolders: NativeFileEntry[];
+  isPartial: boolean;
+  scanState: string;
 }
 
 export interface NativeMetric {
@@ -85,7 +103,7 @@ export const nativeApi = {
     analyze: (driveId: string, jobId: string) => {
       const path = pathSchema.parse(driveId);
       const job = jobIdSchema.parse(jobId);
-      return invoke<AnalysisData>("disk_analyze", { driveId: path, jobId: job });
+      return invoke<NativeAnalysisData>("disk_analyze", { driveId: path, jobId: job });
     },
     cancel: (jobId: string) => invoke<boolean>("analyze_cancel", { jobId: jobIdSchema.parse(jobId) }),
   },

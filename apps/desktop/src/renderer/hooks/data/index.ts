@@ -5,6 +5,7 @@ export * from "./useCleanup";
 export * from "./useDuplicates";
 export * from "./useOrganization";
 export * from "./useMaintenance";
+export * from "./useOperations";
 export * from "./useAutomation";
 export * from "./useReports";
 export * from "./useSettings";

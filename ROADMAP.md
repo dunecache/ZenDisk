@@ -164,7 +164,8 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 - [x] `disk_list` — drives, capacity, free space, filesystem
 - [x] `disk_analyze` — recursive walk, progress, cancellation, depth-limited tree, top-N files/folders, partial result flag
 - [x] `files_list` — directory listing with metadata; `files_inspect` reports unsupported instead of guessing
-- [ ] Hook swaps are partial: Maintenance, Automation and Settings call native with mock fallback; Overview/Disk Analysis/Cleanup/Organization/Duplicates still use mocks
+- [x] Read-only info screens are native-first: Overview drives/activity, Disk Analysis scans, Duplicates, Reports, and Maintenance call Tauri commands with mock data confined to the browser preview
+- [ ] Cleanup candidate discovery and Organization rule apply still use mock/rule data: no native command enumerates safe cleanup targets and `organizer_execute` is unsupported
 
 ### 6.2 Cleanup and quarantine
 
@@ -227,16 +228,16 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 | --- | --- | --- | --- |
 | App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Implemented; not hardware-verified |
 | Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Implemented; UI wired; not hardware-verified |
-| Overview drives | `disk.list` | Custom command | Implemented; hook still mock |
-| Disk analysis | `disk.analyze`, `analyze_cancel` | Custom command + progress events | Implemented; hook still mock |
+| Overview drives | `disk.list` | Custom command | Wired to Overview, Disk Analysis, Reports, Duplicates |
+| Disk analysis | `disk.analyze`, `analyze_cancel` | Custom command + progress events | Wired (adapters map tree/timestamps); progress events not yet consumed |
 | Files | `files.list`, `files.inspect` | Custom command; inspect unsupported | Implemented / unsupported |
-| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + quarantine | Implemented; hook still mock |
+| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + quarantine | Preview still mock (no candidate-discovery command); execute wired for duplicate quarantine |
 | Organization | `organizer.preview`, `organizer.execute` | Custom command; execute unsupported | Partial |
-| Duplicates | `duplicates.scan` | Custom command, BLAKE3 pipeline | Implemented; hook still mock |
-| Activity history | `operations.history` | Custom command + SQLite | Implemented; UI not wired |
-| Maintenance | `system.metrics`, `disk.health`, `startup_list`, `apps_list` | Custom commands; unsupported where no API | Partial / unsupported |
+| Duplicates | `duplicates.scan` | Custom command, BLAKE3 pipeline | Wired to scan and real quarantine; verification shown in hash dialog |
+| Activity history | `operations.history` | Custom command + SQLite | Wired to Overview, Reports, Maintenance via `useOperations` |
+| Maintenance | `system.metrics`, `disk.health`, `startup_list`, `apps_list` | Custom commands; unsupported where no API | Metrics/history wired; other sources honestly unsupported |
 | Automation | `automation_list`, `automation_set` | Custom commands; Task Scheduler not wired | Partial |
-| Reports | `reports_summary` | Custom command over persisted history | Implemented; UI still mock |
+| Reports | `reports_summary` | Custom command over persisted history | Aggregated from real history; storage snapshots not collected |
 | License/help | — | None; external-link opening not connected | UI only |
 
 ---
@@ -368,3 +369,4 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-21 | Release policy: `windows-latest` is beta until a clean hardware pass; uninstall removes `\ZenDisk\` tasks but keeps `%APPDATA%\ZenDisk` user data; changelog practice recorded in `CHANGELOG.md`. | Avoids silently destroying the audit trail/recovery copies and makes channel expectations explicit. |
 | 2026-11-23 | Published a stable `v0.1.31` GitHub Release from CI run `45132647464` (commit `0cde722`), carrying the same signed installer, `.sig`, and `latest.json` as the rolling `windows-latest` pre-release. | User requested an actual release rather than only the beta channel. Recorded as a deliberate, user-directed deviation from "stable only after a hardware pass"; the remaining hardware/OTA gaps are stated in the release notes and `CHANGELOG.md`. |
 | 2026-11-23 | Added a rolling `windows-stable` release: CI publishes to it only on `workflow_dispatch` with `channel=stable`, alongside the beta channel, and generates a channel-specific `latest.json` whose asset URL points at that release. The updater endpoint now reads `windows-stable/latest.json`. | A versioned stable tag is a static snapshot and would freeze updates. The rolling channel keeps stable installs updatable while ordinary `main` pushes remain beta-only, so a stable publish stays a deliberate act. |
+| 2026-11-23 | Made read-only screens native-first (`useOverview`, `useAnalysis`, `useDuplicates`, `useReports`, `useMaintenance`, new `useOperations`) with adapters in `lib/native/adapters.ts`; mock data is now confined to the browser preview. Native payload gaps are mapped, not invented: categories/colors are derived, Unix timestamps converted, capacity read from `disk_list`, and report metrics aggregated from operation history. | The facade previously returned a type it could not satisfy (`AnalysisData` from `disk_analyze`) and several screens still rendered demo numbers. Adapters keep screen contracts intact while reporting real machine state; storage snapshots stay empty until a collector exists. |

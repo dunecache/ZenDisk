@@ -13,6 +13,9 @@ export interface DuplicateGroup {
   id: string;
   kind: DuplicateTab;
   hash?: string;
+  /** Reported by the native pipeline; absent in browser-preview mock data. */
+  verification?: "size" | "partial" | "full";
+  algorithm?: string;
   files: DuplicateFile[];
 }
 

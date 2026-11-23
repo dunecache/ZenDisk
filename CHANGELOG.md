@@ -9,11 +9,17 @@ All notable changes to ZenDisk are documented here. Format follows
 
 - Rolling `windows-stable` update channel, published by CI only on an explicit
   stable dispatch; configured as the installed-app updater endpoint.
+- Native-first data: Overview drives and activity, Disk Analysis scans,
+  Duplicates, Reports, and Maintenance now read real values from Tauri commands.
+  Mock data remains only in the browser preview.
 
 ### Notes
 
 - Clean install of `v0.1.31` verified on Windows hardware (2026-11-23).
   Upgrade, OTA, SMART, and permission paths remain unverified.
+- Cleanup candidate discovery, organizer apply, Task Scheduler, and
+  SMART/startup/application inventory are still unavailable; storage growth has
+  no snapshot source yet and renders an empty state instead of invented values.
 
 ## [0.1.31] - 2026-11-23
 

@@ -1,10 +1,18 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { EmptyState, FileSize, FilterBar, InlineAlert, SearchInput, SkeletonCard } from "@/components/data-display";
 import { toast, useOperationHistory } from "@/stores";
-import { useDuplicates } from "@/hooks";
+import { nativeApi } from "@/lib/native/client";
+import {
+  duplicatesKeys,
+  operationsKeys,
+  overviewKeys,
+  reportsKeys,
+  useDuplicates,
+} from "@/hooks";
 import { DuplicateGroupCard } from "./components/groups/DuplicateGroupCard";
 import { HashDetailsDialog } from "./components/comparison/HashDetailsDialog";
 import { QuarantineDialog } from "./components/quarantine/QuarantineDialog";
@@ -18,6 +26,7 @@ const tabs: { value: DuplicateTab; label: string }[] = [
 ];
 
 export function DuplicatesScreen() {
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useDuplicates();
   const [tab, setTab] = useState<DuplicateTab>("exact");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -58,22 +67,41 @@ export function DuplicatesScreen() {
     });
   };
 
-  const quarantine = () => {
-    const record: OperationRecord = {
-      id: crypto.randomUUID(),
-      kind: "duplicates",
-      title: "Duplicate quarantine",
-      at: new Date().toISOString(),
-      completed: selectedFiles.length,
-      failed: 0,
-      skipped: 0,
-      total: selectedFiles.length,
-      reclaimedBytes: selectedBytes,
-      recoverable: true,
-    };
-    addOperation(record);
-    setSelected(new Set());
-    toast.success("Copies quarantined", `${selectedFiles.length} files moved (recoverable)`);
+  const quarantine = async () => {
+    if (selectedFiles.length === 0) return;
+    try {
+      if (nativeApi.app.isTauri()) {
+        const record = await nativeApi.cleanup.execute(selectedFiles.map((file) => file.path));
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: duplicatesKeys.all }),
+          queryClient.invalidateQueries({ queryKey: operationsKeys.all }),
+          queryClient.invalidateQueries({ queryKey: overviewKeys.all }),
+          queryClient.invalidateQueries({ queryKey: reportsKeys.all }),
+        ]);
+        toast.success("Copies quarantined", `${record.completed} files moved (recoverable)`);
+      } else {
+        const record: OperationRecord = {
+          id: crypto.randomUUID(),
+          kind: "duplicates",
+          title: "Duplicate quarantine",
+          at: new Date().toISOString(),
+          completed: selectedFiles.length,
+          failed: 0,
+          skipped: 0,
+          total: selectedFiles.length,
+          reclaimedBytes: selectedBytes,
+          recoverable: true,
+        };
+        addOperation(record);
+        toast.success("Copies quarantined", `${selectedFiles.length} files moved (recoverable)`);
+      }
+      setSelected(new Set());
+    } catch (error) {
+      toast.error(
+        "Quarantine failed",
+        error instanceof Error ? error.message : "The selected copies could not be moved.",
+      );
+    }
   };
 
   return (

@@ -4,13 +4,13 @@ import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
 import {
-  DateDisplay,
   EmptyState,
   InlineAlert,
   MetricCard,
   SkeletonCard,
 } from "@/components/data-display";
 import { formatBytes } from "@/lib/formatters";
+import { nativeApi } from "@/lib/native/client";
 import { useReports } from "@/hooks";
 import { usePreferencesStore } from "@/stores";
 import { RecentActivity } from "@/features/overview/components/activity/RecentActivity";
@@ -86,6 +86,7 @@ function StateGate({
 export function ReportsScreen() {
   const { data, isLoading, isError, refetch } = useReports();
   const showSampleNotice = usePreferencesStore((state) => state.showSampleDataNotice);
+  const isPreview = !nativeApi.app.isTauri();
   const [range, setRange] = useState<ReportRange>("30");
 
   const loading = isLoading || !data;
@@ -125,9 +126,13 @@ export function ReportsScreen() {
       <PageContainer>
         <div className="flex flex-col gap-[var(--space-6)]">
           {showSampleNotice && (
-            <InlineAlert variant="info" title="Sample data">
-              Report figures are illustrative until operation history is collected
-              natively. {data?.collectedAt ? <DateDisplay value={data.collectedAt} /> : null}
+            <InlineAlert
+              variant="info"
+              title={isPreview ? "Sample data" : "Storage history unavailable"}
+            >
+              {isPreview
+                ? "Report figures are illustrative in the browser preview."
+                : "Used and free space snapshots are not collected yet. All other figures come from recorded operation history."}
             </InlineAlert>
           )}
 
@@ -141,8 +146,8 @@ export function ReportsScreen() {
             loading={loading}
             error={isError}
             denied={denied}
-            empty={!metrics}
-            noResults={storage.length === 0}
+            empty={!metrics || activity.length === 0}
+            noResults={false}
             emptyHeading="No report data"
             emptyDescription="Reports will appear after the first operations are recorded."
           >
@@ -168,7 +173,14 @@ export function ReportsScreen() {
             </div>
 
             <Section title="Storage growth" description="Used and free space across the selected period.">
-              <StorageGrowthChart points={storage} />
+              {storage.length === 0 ? (
+                <EmptyState
+                  heading="No storage snapshots yet"
+                  description="Used and free space history is not collected. Reclaimed figures come from operation history."
+                />
+              ) : (
+                <StorageGrowthChart points={storage} />
+              )}
             </Section>
 
             <Section title="Activity timeline" description="Operations recorded in this period.">

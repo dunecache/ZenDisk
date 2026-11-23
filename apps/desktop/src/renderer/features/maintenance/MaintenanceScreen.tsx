@@ -3,6 +3,7 @@ import { PageContainer } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { EmptyState, InlineAlert, SkeletonCard } from "@/components/data-display";
+import { nativeApi } from "@/lib/native/client";
 import { useMaintenance } from "@/hooks";
 import { usePreferencesStore } from "@/stores";
 import {
@@ -62,6 +63,7 @@ function StateGate({
 export function MaintenanceScreen() {
   const { data, isLoading, isError, refetch } = useMaintenance();
   const showSampleNotice = usePreferencesStore((state) => state.showSampleDataNotice);
+  const isPreview = !nativeApi.app.isTauri();
   const [tab, setTab] = useState<MaintenanceTab>("overview");
 
   const loading = isLoading || !data;
@@ -77,9 +79,13 @@ export function MaintenanceScreen() {
       <PageContainer>
         <div className="flex flex-col gap-[var(--space-6)]">
           {showSampleNotice && (
-            <InlineAlert variant="info" title="Sample data">
-              Native system access is not connected yet. Values are illustrative;
-              metrics the system cannot report are marked as not available.
+            <InlineAlert
+              variant="info"
+              title={isPreview ? "Sample data" : "Limited native coverage"}
+            >
+              {isPreview
+                ? "Native system access is not connected yet. Values are illustrative."
+                : "CPU and memory are measured live. SMART, startup entries, and installed applications are not available from this build; they are shown as empty or not available rather than invented."}
             </InlineAlert>
           )}
 
