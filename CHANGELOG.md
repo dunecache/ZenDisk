@@ -5,18 +5,22 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
-### Fixed
-
-- Opening Disk Analysis could freeze the app while a drive was scanned. Heavy
-  native commands now run on Tauri's blocking pool instead of the UI thread,
-  and scan candidates are bounded during traversal.
-
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
 - Organizer apply, Task Scheduler, and SMART/startup/application inventory are
   still unavailable; storage growth has no snapshot source yet and renders an
   empty state instead of invented values.
+
+## [0.1.49] - 2026-11-23
+
+Stable Windows release built by CI run `45156934743` from commit `87afff8`.
+
+### Fixed
+
+- Opening Disk Analysis could freeze the app while a drive was scanned. Heavy
+  native commands now run on Tauri's blocking pool instead of the UI thread,
+  and scan candidates are bounded during traversal.
 
 ## [0.1.46] - 2026-11-23
 
