@@ -5,19 +5,23 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
-### Changed
-
-- Disk Analysis now reuses each file's existing metadata instead of issuing a
-  second stat call, skips protected system folders by design, and stops at a
-  200,000-item / 25-second budget with an explicit "Scan limited" state.
-  Switching drives or rescanning cancels the previous scan.
-
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
 - Organizer apply, Task Scheduler, and SMART/startup/application inventory are
   still unavailable; storage growth has no snapshot source yet and renders an
   empty state instead of invented values.
+
+## [0.1.57] - 2026-11-23
+
+Stable Windows release built by CI run `45281931130` from commit `58507d5`.
+
+### Changed
+
+- Disk Analysis now reuses each file's existing metadata instead of issuing a
+  second stat call, skips protected system folders by design, and stops at a
+  200,000-item / 25-second budget with an explicit "Scan limited" state.
+  Switching drives or rescanning cancels the previous scan.
 
 ## [0.1.54] - 2026-11-23
 
