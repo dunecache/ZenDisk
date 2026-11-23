@@ -5,6 +5,19 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Notes
+
+- Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
+- Organizer apply, Task Scheduler, and SMART/startup/application inventory are
+  still unavailable; storage growth has no snapshot source yet and renders an
+  empty state instead of invented values.
+
+## [0.1.41] - 2026-11-23
+
+Stable Windows release built by CI run `45147417234` from commit `a541188`.
+Replaces the UI's mock data with real computer information wherever a native
+source exists.
+
 ### Added
 
 - Rolling `windows-stable` update channel, published by CI only on an explicit
@@ -17,11 +30,9 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ### Notes
 
-- Clean install of `v0.1.31` verified on Windows hardware (2026-11-23).
-  Upgrade, OTA, SMART, and permission paths remain unverified.
-- Organizer apply, Task Scheduler, and SMART/startup/application inventory are
-  still unavailable; storage growth has no snapshot source yet and renders an
-  empty state instead of invented values.
+- Clean install of `v0.1.31` verified on Windows hardware (2026-11-23);
+  this build passed CI smoke, install, and uninstall but has not been reinstalled
+  on hardware yet.
 
 ## [0.1.31] - 2026-11-23
 
