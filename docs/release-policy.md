@@ -5,9 +5,15 @@
 - The rolling `windows-latest` pre-release is the **beta channel**. Every push
   to `main` publishes `0.1.<run_number>` there, with `latest.json` uploaded
   last.
-- There is no stable channel yet. A stable tag should be introduced only after
-  a clean Windows 10/11 hardware pass (Phase 7 manual checks). Until then, the
-  updater endpoint remains `windows-latest`.
+- A stable channel exists as the `v0.1.31` GitHub Release, published
+  2026-11-23 from CI run `45132647464` at the user's request. It carries the
+  CI-signed installer, its `.sig`, and the generated `latest.json`. Its clean
+  install was verified on Windows hardware the same day; upgrade, OTA, SMART,
+  and permission paths remain unverified. Future stable tags should follow a
+  clean Windows 10/11 verification (Phase 7 manual checks).
+- The installed-app updater endpoint remains `windows-latest` (beta). A stable
+  release tag is a one-off artifact; clients follow the rolling beta manifest
+  until a rolling stable channel is introduced.
 - PR builds never publish and never need signing secrets.
 
 ## Uninstall behaviour

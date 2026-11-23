@@ -5,6 +5,18 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Notes
+
+- Clean install of `v0.1.31` verified on Windows hardware (2026-11-23).
+  Upgrade, OTA, SMART, and permission paths remain unverified.
+- The installed-app updater endpoint still targets the rolling
+  `windows-latest` beta channel, not the stable tag.
+
+## [0.1.31] - 2026-11-23
+
+First stable Windows release. Built by CI run `45132647464` from commit
+`0cde722` and published alongside the rolling `windows-latest` pre-release.
+
 ### Added
 
 - Tauri v2 desktop shell, signed NSIS updater, and Windows CI publishing.
@@ -21,5 +33,6 @@ All notable changes to ZenDisk are documented here. Format follows
 - Native coverage is partial: Task Scheduler, SMART, startup/applications,
   WMI/registry parsing, parallel hashing, and a 500k-file benchmark remain
   open. Unsupported capabilities report "Not available" rather than a value.
-- Real Windows hardware verification (install, upgrade, OTA, SMART,
-  permissions) is still required before a stable channel is declared.
+- The installer is signed with the Tauri updater key (minisign) but is not
+  Authenticode-signed; Windows may show a SmartScreen warning.
+- Install/upgrade/OTA behaviour was exercised on a CI VM, not on real hardware.
