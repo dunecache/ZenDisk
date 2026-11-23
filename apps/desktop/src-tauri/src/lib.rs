@@ -9,6 +9,7 @@ pub fn run() {
             commands::analyze_cancel,
             commands::files_list,
             commands::cleanup_preview,
+            commands::cleanup_candidates,
             commands::cleanup_execute,
             commands::quarantine_restore,
             commands::organizer_preview,
@@ -53,9 +54,11 @@ pub fn smoke() -> std::result::Result<(), String> {
     let digest_a = commands::full_digest(&a).map_err(|e| e.message)?;
     let digest_b = commands::full_digest(&b).map_err(|e| e.message)?;
     let metrics = commands::system_metrics().map_err(|e| e.message)?;
+    let candidates = commands::cleanup_candidates().map_err(|e| e.message)?;
     let report = serde_json::json!({
         "filesListed": list.len(),
         "previewFiles": preview.len(),
+        "candidateGroups": candidates.len(),
         "hashesMatch": digest_a == digest_b,
         "metrics": metrics.len(),
         "tempRoot": PathBuf::from(&root).to_string_lossy(),

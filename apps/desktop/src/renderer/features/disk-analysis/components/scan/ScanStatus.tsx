@@ -1,11 +1,13 @@
 import { Pause, Play, RotateCw, Square } from "lucide-react";
 import { Button } from "@/components/ui";
 import { InlineAlert, StatusBadge } from "@/components/data-display";
+import { formatBytes } from "@/lib/formatters";
 import type { ScanState } from "@/types";
 
 export interface ScanStatusProps {
   state: ScanState;
   isPartial?: boolean;
+  progress?: { scannedBytes: number; scannedItems: number } | null;
   onScan?: () => void;
   onPause?: () => void;
   onResume?: () => void;
@@ -15,6 +17,7 @@ export interface ScanStatusProps {
 export function ScanStatus({
   state,
   isPartial = false,
+  progress,
   onScan,
   onPause,
   onResume,
@@ -48,6 +51,11 @@ export function ScanStatus({
           </Button>
         )}
       </div>
+      {progress && (
+        <p className="text-[length:var(--text-small)] text-muted tabular-nums">
+          Scanned {new Intl.NumberFormat().format(progress.scannedItems)} items · {formatBytes(progress.scannedBytes)}
+        </p>
+      )}
       {isPartial && (
         <InlineAlert variant="warning" title="Partial results">
           The scan is incomplete. Results shown so far may not represent the whole drive.

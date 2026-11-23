@@ -75,6 +75,13 @@ pub struct AnalysisData {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CleanupCandidate {
+    pub category: String,
+    pub files: Vec<FileEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProgressEvent {
     pub job_id: String,
     pub scanned_bytes: u64,
@@ -341,6 +348,65 @@ pub fn cleanup_preview(paths: Vec<String>) -> Result<Vec<FileEntry>> {
         if safe.is_file() { out.push(file_entry(&safe)?); }
     }
     Ok(out)
+}
+
+/// Lists bounded, top-level temporary-file candidates from known scratch
+/// locations. Nothing is moved or deleted here; the UI still previews and
+/// confirms every file before `cleanup_execute` runs.
+#[tauri::command]
+pub fn cleanup_candidates() -> Result<Vec<CleanupCandidate>> {
+    let mut roots: Vec<PathBuf> = vec![std::env::temp_dir()];
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        let base = PathBuf::from(local);
+        for suffix in ["Temp", "CrashDumps"] {
+            let path = base.join(suffix);
+            if path.is_dir() {
+                roots.push(path);
+            }
+        }
+    }
+    roots.dedup();
+
+    let mut groups: HashMap<String, Vec<FileEntry>> = HashMap::new();
+    for root in roots {
+        let entries = match fs::read_dir(&root) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
+            let category = if name.ends_with(".msi") || name.ends_with(".exe") {
+                "installers"
+            } else if name.ends_with(".log") || name.contains("crash") {
+                "logs"
+            } else if name.contains("cache") {
+                "cache"
+            } else {
+                "temp"
+            };
+            if let Ok(file) = file_entry(&path) {
+                groups.entry(category.to_string()).or_default().push(file);
+            }
+        }
+    }
+    for files in groups.values_mut() {
+        files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+        files.truncate(50);
+    }
+    let order = ["temp", "cache", "installers", "logs"];
+    Ok(order
+        .iter()
+        .filter_map(|key| {
+            groups.remove(*key).map(|files| CleanupCandidate {
+                category: key.to_string(),
+                files,
+            })
+        })
+        .collect())
 }
 
 #[tauri::command]

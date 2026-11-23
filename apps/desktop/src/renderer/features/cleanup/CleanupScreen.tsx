@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageContainer, Section } from "@/components/layout";
 import { PageHeader } from "@/components/navigation";
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { EmptyState, FileSize, InlineAlert, SkeletonCard } from "@/components/data-display";
 import { toast, useOperationHistory } from "@/stores";
-import { useCleanup } from "@/hooks";
+import { nativeApi } from "@/lib/native/client";
+import {
+  cleanupKeys,
+  operationsKeys,
+  overviewKeys,
+  reportsKeys,
+  useCleanup,
+} from "@/hooks";
 import { CategoryList } from "./components/results/CategoryList";
 import { ReviewDialog } from "./components/review/ReviewDialog";
 import { CleanupSummary } from "./components/summary/CleanupSummary";
 import type { OperationRecord } from "@/types";
 
 export function CleanupScreen() {
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useCleanup();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -44,23 +53,47 @@ export function CleanupScreen() {
     });
   };
 
-  const execute = () => {
-    const record: OperationRecord = {
-      id: crypto.randomUUID(),
-      kind: "cleanup",
-      title: "Cleanup",
-      at: new Date().toISOString(),
-      completed: selectedFiles,
-      failed: 0,
-      skipped: 0,
-      total: selectedFiles,
-      reclaimedBytes: selectedBytes,
-      recoverable: true,
-    };
-    addOperation(record);
-    setLastRecord(record);
-    setSelected(new Set());
-    toast.success("Cleanup completed", `${selectedFiles} files moved to quarantine`);
+  const execute = async () => {
+    const paths = selectedCategories.flatMap((category) => category.files.map((file) => file.path));
+    if (paths.length === 0) return;
+    try {
+      if (nativeApi.app.isTauri()) {
+        const record = await nativeApi.cleanup.execute(paths);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: cleanupKeys.all }),
+          queryClient.invalidateQueries({ queryKey: operationsKeys.all }),
+          queryClient.invalidateQueries({ queryKey: overviewKeys.all }),
+          queryClient.invalidateQueries({ queryKey: reportsKeys.all }),
+        ]);
+        setLastRecord(record);
+        toast.success(
+          "Cleanup completed",
+          `${record.completed} of ${record.total} files moved to quarantine${record.failed ? `, ${record.failed} failed` : ""}`,
+        );
+      } else {
+        const record: OperationRecord = {
+          id: crypto.randomUUID(),
+          kind: "cleanup",
+          title: "Cleanup",
+          at: new Date().toISOString(),
+          completed: selectedFiles,
+          failed: 0,
+          skipped: 0,
+          total: selectedFiles,
+          reclaimedBytes: selectedBytes,
+          recoverable: true,
+        };
+        addOperation(record);
+        setLastRecord(record);
+        toast.success("Cleanup completed", `${selectedFiles} files moved to quarantine`);
+      }
+      setSelected(new Set());
+    } catch (error) {
+      toast.error(
+        "Cleanup failed",
+        error instanceof Error ? error.message : "The selected files could not be quarantined.",
+      );
+    }
   };
 
   return (

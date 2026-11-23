@@ -8,6 +8,7 @@
 import { formatBytes } from "@/lib/formatters";
 import type {
   NativeAnalysisData,
+  NativeCleanupCandidate,
   NativeDiskInfo,
   NativeDuplicateGroup,
   NativeFileEntry,
@@ -16,6 +17,7 @@ import type {
 import type {
   ActivityEvent,
   AnalysisData,
+  CleanupData,
   DiskEntry,
   DriveInfo,
   DuplicateGroup,
@@ -182,6 +184,48 @@ export function analysisDataFromNative(
     largestFiles: native.largestFiles.map((file) => fileEntryFromNative(file, false)),
     largestFolders: native.largestFolders.map((folder) => fileEntryFromNative(folder, true)),
     tree,
+  };
+}
+
+const CLEANUP_META: Record<string, { name: string; description: string; warning?: string }> = {
+  temp: {
+    name: "Temporary files",
+    description: "Files created by applications that are no longer in use.",
+  },
+  cache: {
+    name: "Application cache",
+    description: "Cached data that can be regenerated on demand.",
+  },
+  installers: {
+    name: "Old installers",
+    description: "Setup files left behind after installation.",
+    warning: "Some installers may be needed to repair or uninstall applications.",
+  },
+  logs: {
+    name: "Logs",
+    description: "Diagnostic logs from applications and services.",
+  },
+};
+
+export function cleanupDataFromNative(candidates: NativeCleanupCandidate[]): CleanupData {
+  return {
+    categories: candidates.map((candidate) => {
+      const files = candidate.files.map((file) => fileEntryFromNative(file, false));
+      const meta = CLEANUP_META[candidate.category] ?? {
+        name: candidate.category,
+        description: "Files found in a temporary location.",
+        warning: "Review every file before removing it.",
+      };
+      return {
+        id: candidate.category,
+        name: meta.name,
+        description: meta.description,
+        warning: meta.warning,
+        bytes: files.reduce((total, file) => total + file.sizeBytes, 0),
+        fileCount: files.length,
+        files,
+      };
+    }),
   };
 }
 

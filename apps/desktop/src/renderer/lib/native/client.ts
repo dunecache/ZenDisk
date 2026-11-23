@@ -10,6 +10,7 @@
  */
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import { jobIdSchema, pathSchema } from "@/lib/validators";
@@ -38,6 +39,11 @@ export interface NativeFileEntry {
   path: string;
   sizeBytes: number;
   modifiedAt: string;
+}
+
+export interface NativeCleanupCandidate {
+  category: string;
+  files: NativeFileEntry[];
 }
 
 export interface NativeDuplicateGroup {
@@ -106,12 +112,15 @@ export const nativeApi = {
       return invoke<NativeAnalysisData>("disk_analyze", { driveId: path, jobId: job });
     },
     cancel: (jobId: string) => invoke<boolean>("analyze_cancel", { jobId: jobIdSchema.parse(jobId) }),
+    onScanProgress: (handler: (progress: NativeProgress) => void) =>
+      listen<NativeProgress>("zendisk://scan-progress", (event) => handler(event.payload)),
   },
   files: {
     list: (path: string) => invoke<NativeFileEntry[]>("files_list", { path: pathSchema.parse(path) }),
     inspect: async () => ({ supported: false as const, reason: "Native inspect is not available yet" }),
   },
   cleanup: {
+    candidates: () => invoke<NativeCleanupCandidate[]>("cleanup_candidates"),
     preview: (paths: string[]) =>
       invoke<NativeFileEntry[]>("cleanup_preview", { paths: paths.map((path) => pathSchema.parse(path)) }),
     execute: (paths: string[]) =>

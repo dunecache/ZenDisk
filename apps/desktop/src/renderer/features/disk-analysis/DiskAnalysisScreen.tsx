@@ -12,7 +12,7 @@ import {
   SkeletonCard,
 } from "@/components/data-display";
 import { formatBytes } from "@/lib/formatters";
-import { useAnalysis, useOverview } from "@/hooks";
+import { useAnalysis, useOverview, useScanProgress } from "@/hooks";
 import { DriveSelector } from "./components/scan/DriveSelector";
 import { ScanStatus } from "./components/scan/ScanStatus";
 import { TreemapView } from "./components/treemap/TreemapView";
@@ -26,7 +26,9 @@ export function DiskAnalysisScreen() {
   const [query, setQuery] = useState("");
 
   const { data: overview } = useOverview();
-  const { data, isLoading, isError, refetch } = useAnalysis(driveId);
+  const { data, isLoading, isError, jobId, rescan, cancel } = useAnalysis(driveId);
+  const progress = useScanProgress(jobId);
+  const scanning = progress !== null && isLoading;
 
   const setDrive = (id: string) => setSearchParams({ drive: id });
 
@@ -74,9 +76,11 @@ export function DiskAnalysisScreen() {
         <div className="flex flex-col gap-[var(--space-8)]">
           <Section>
             <ScanStatus
-              state={data?.scanState ?? "idle"}
+              state={scanning ? "scanning" : (data?.scanState ?? "idle")}
               isPartial={data?.isPartial}
-              onScan={() => void refetch()}
+              progress={scanning ? progress : null}
+              onScan={rescan}
+              onCancel={() => void cancel()}
             />
           </Section>
 

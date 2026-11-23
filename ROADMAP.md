@@ -165,7 +165,7 @@ Goal: replace mock data with real Tauri commands, surface by surface, without ch
 - [x] `disk_analyze` — recursive walk, progress, cancellation, depth-limited tree, top-N files/folders, partial result flag
 - [x] `files_list` — directory listing with metadata; `files_inspect` reports unsupported instead of guessing
 - [x] Read-only info screens are native-first: Overview drives/activity, Disk Analysis scans, Duplicates, Reports, and Maintenance call Tauri commands with mock data confined to the browser preview
-- [ ] Cleanup candidate discovery and Organization rule apply still use mock/rule data: no native command enumerates safe cleanup targets and `organizer_execute` is unsupported
+- [ ] Organization rule apply still uses mock/rule data because `organizer_execute` is unsupported; cleanup candidates are now discovered natively
 
 ### 6.2 Cleanup and quarantine
 
@@ -229,9 +229,9 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 | App version | `app.version` | `@tauri-apps/api/app` via `core:default` | Implemented; not hardware-verified |
 | Update check/install | `updates.check`, `updates.install` | `updater:default`, `process:default` | Implemented; UI wired; not hardware-verified |
 | Overview drives | `disk.list` | Custom command | Wired to Overview, Disk Analysis, Reports, Duplicates |
-| Disk analysis | `disk.analyze`, `analyze_cancel` | Custom command + progress events | Wired (adapters map tree/timestamps); progress events not yet consumed |
+| Disk analysis | `disk.analyze`, `analyze_cancel` | Custom command + progress events | Wired with live progress and cancellation |
 | Files | `files.list`, `files.inspect` | Custom command; inspect unsupported | Implemented / unsupported |
-| Cleanup | `cleanup.preview`, `cleanup.execute` | Custom command + quarantine | Preview still mock (no candidate-discovery command); execute wired for duplicate quarantine |
+| Cleanup | `cleanup.preview`, `cleanup_candidates`, `cleanup.execute` | Custom command + quarantine | Native candidate discovery + real quarantine execution |
 | Organization | `organizer.preview`, `organizer.execute` | Custom command; execute unsupported | Partial |
 | Duplicates | `duplicates.scan` | Custom command, BLAKE3 pipeline | Wired to scan and real quarantine; verification shown in hash dialog |
 | Activity history | `operations.history` | Custom command + SQLite | Wired to Overview, Reports, Maintenance via `useOperations` |
@@ -369,4 +369,5 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-21 | Release policy: `windows-latest` is beta until a clean hardware pass; uninstall removes `\ZenDisk\` tasks but keeps `%APPDATA%\ZenDisk` user data; changelog practice recorded in `CHANGELOG.md`. | Avoids silently destroying the audit trail/recovery copies and makes channel expectations explicit. |
 | 2026-11-23 | Published a stable `v0.1.31` GitHub Release from CI run `45132647464` (commit `0cde722`), carrying the same signed installer, `.sig`, and `latest.json` as the rolling `windows-latest` pre-release. | User requested an actual release rather than only the beta channel. Recorded as a deliberate, user-directed deviation from "stable only after a hardware pass"; the remaining hardware/OTA gaps are stated in the release notes and `CHANGELOG.md`. |
 | 2026-11-23 | Added a rolling `windows-stable` release: CI publishes to it only on `workflow_dispatch` with `channel=stable`, alongside the beta channel, and generates a channel-specific `latest.json` whose asset URL points at that release. The updater endpoint now reads `windows-stable/latest.json`. | A versioned stable tag is a static snapshot and would freeze updates. The rolling channel keeps stable installs updatable while ordinary `main` pushes remain beta-only, so a stable publish stays a deliberate act. |
+| 2026-11-23 | Cleanup now discovers real temporary-file candidates via a bounded native command and executes real quarantine moves; Disk Analysis consumes `zendisk://scan-progress` events and supports cancellation. `core:default` already grants `core:event:allow-listen`/`allow-unlisten`. | The remaining user-visible mock screens and missing progress/cancel feedback were the largest gaps in the native phase; background scans now show measurable progress and can be stopped. |
 | 2026-11-23 | Made read-only screens native-first (`useOverview`, `useAnalysis`, `useDuplicates`, `useReports`, `useMaintenance`, new `useOperations`) with adapters in `lib/native/adapters.ts`; mock data is now confined to the browser preview. Native payload gaps are mapped, not invented: categories/colors are derived, Unix timestamps converted, capacity read from `disk_list`, and report metrics aggregated from operation history. `disk_list` now returns the mount point as `id` and the volume label as `name`. | The facade previously returned a type it could not satisfy (`AnalysisData` from `disk_analyze`) and several screens still rendered demo numbers. Adapters keep screen contracts intact while reporting real machine state. The drive-id change is required because `disk_analyze` calls `safe_path`, which rejects a volume label such as `OS` or a drive-relative `C:`. |
