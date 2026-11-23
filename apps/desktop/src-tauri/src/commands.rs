@@ -588,12 +588,16 @@ fn db_path(app: &AppHandle) -> Result<PathBuf> {
     Ok(base.join("history.sqlite"))
 }
 
-fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
-    let conn = Connection::open(db_path(app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+fn ensure_history_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, kind TEXT, title TEXT, at TEXT, completed INTEGER, failed INTEGER, skipped INTEGER, total INTEGER, reclaimed INTEGER, recoverable INTEGER)",
         [],
-    ).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    ).map_err(|e| CommandError::new("db", e.to_string(), true))
+}
+
+fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
+    let conn = Connection::open(db_path(app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    ensure_history_table(&conn)?;
     conn.execute(
         "INSERT INTO operations (id, kind, title, at, completed, failed, skipped, total, reclaimed, recoverable) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![record.id, record.kind, record.title, record.at, record.completed, record.failed, record.skipped, record.total, record.reclaimed_bytes as i64, record.recoverable as i64],
@@ -604,6 +608,9 @@ fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
 #[tauri::command]
 pub fn operations_history(app: AppHandle) -> Result<Vec<OperationRecord>> {
     let conn = Connection::open(db_path(&app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    // A fresh install has no history yet: create the table before reading it so
+    // the first launch returns an empty list instead of a "no such table" error.
+    ensure_history_table(&conn)?;
     let mut stmt = conn.prepare("SELECT id, kind, title, at, completed, failed, skipped, total, reclaimed, recoverable FROM operations ORDER BY at DESC LIMIT 200")
         .map_err(|e| CommandError::new("db", e.to_string(), true))?;
     let rows = stmt.query_map([], |row| {
@@ -626,6 +633,15 @@ pub fn reports_summary(app: AppHandle) -> Result<Vec<OperationRecord>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn history_table_exists_on_first_read() {
+        let conn = Connection::open_in_memory().unwrap();
+        ensure_history_table(&conn).unwrap();
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM operations").unwrap();
+        let count: i64 = stmt.query_row([], |row| row.get(0)).unwrap();
+        assert_eq!(count, 0);
+    }
 
     #[test]
     fn rejects_relative_paths() {

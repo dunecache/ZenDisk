@@ -7,7 +7,7 @@ import {
   driveInfoFromNative,
   recommendationsFromData,
 } from "@/lib/native/adapters";
-import type { OverviewData } from "@/types";
+import type { OperationRecord, OverviewData } from "@/types";
 
 export const overviewKeys = {
   all: ["overview"] as const,
@@ -20,15 +20,21 @@ export function useOverview() {
     queryFn: () =>
       withFallback<OverviewData>(
         async () => {
-          const [disks, records] = await Promise.all([
-            nativeApi.disk.list(),
-            nativeApi.operations.history(),
-          ]);
+          const disks = await nativeApi.disk.list();
+          let records: OperationRecord[] = [];
+          let activityUnavailable = false;
+          try {
+            records = await nativeApi.operations.history();
+          } catch {
+            // Drive data is still real and useful; degrade only the activity feed.
+            activityUnavailable = true;
+          }
           const drives = disks.map(driveInfoFromNative);
           return {
             drives,
             activity: records.map(activityFromOperation).slice(0, 5),
             recommendations: recommendationsFromData(drives, records),
+            activityUnavailable,
           };
         },
         fetchOverview,

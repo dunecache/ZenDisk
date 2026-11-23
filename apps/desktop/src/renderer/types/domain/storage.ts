@@ -28,4 +28,6 @@ export interface OverviewData {
   drives: DriveInfo[];
   activity: ActivityEvent[];
   recommendations: Recommendation[];
+  /** Set when operation history failed but drive data is still available. */
+  activityUnavailable?: boolean;
 }

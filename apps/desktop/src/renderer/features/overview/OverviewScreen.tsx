@@ -18,7 +18,7 @@ const quickActions = [
 
 export function OverviewScreen() {
   const navigate = useNavigate();
-  const { data, isLoading, isError, refetch } = useOverview();
+  const { data, isLoading, isError, error, refetch } = useOverview();
 
   return (
     <>
@@ -31,6 +31,7 @@ export function OverviewScreen() {
         {isError ? (
           <InlineAlert variant="danger" title="Could not load storage information">
             Check that the native service is available, then try again.
+            {error instanceof Error && error.message ? ` ${error.message}` : ""}
             <button className="ml-[var(--space-2)] rounded-[var(--radius-xs)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--focus)]" onClick={() => void refetch()}>
               Retry
             </button>
@@ -75,6 +76,11 @@ export function OverviewScreen() {
             </Section>
 
             <Section title="Recent activity">
+              {data.activityUnavailable && (
+                <InlineAlert variant="warning" title="Activity unavailable">
+                  Operation history could not be read. Drive information above is still current.
+                </InlineAlert>
+              )}
               <RecentActivity events={data.activity} />
             </Section>
 
