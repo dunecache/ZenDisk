@@ -54,6 +54,11 @@ interface PreferencesState extends Preferences {
 
 const preferenceKeys = Object.keys(defaults) as (keyof Preferences)[];
 
+/** Only persisted fields, never actions or transient state. */
+export function preferencesFromStorage(state: Preferences): Preferences {
+  return Object.fromEntries(preferenceKeys.map((key) => [key, state[key]])) as unknown as Preferences;
+}
+
 export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({

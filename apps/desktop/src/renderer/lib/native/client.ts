@@ -12,6 +12,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { load } from "@tauri-apps/plugin-store";
 import { check } from "@tauri-apps/plugin-updater";
 import { jobIdSchema, pathSchema } from "@/lib/validators";
 import type {
@@ -169,5 +170,16 @@ export const nativeApi = {
       currentVersion: await getVersion(),
       updatesEnabled: true,
     }),
+    preferences: {
+      load: async () => {
+        const store = await load("preferences.json");
+        return (await store.get<Record<string, unknown>>("preferences")) ?? {};
+      },
+      save: async (values: Record<string, unknown>) => {
+        const store = await load("preferences.json");
+        await store.set("preferences", values);
+        await store.save();
+      },
+    },
   },
 } as const;

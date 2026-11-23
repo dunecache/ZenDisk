@@ -12,7 +12,8 @@ All notable changes to ZenDisk are documented here. Format follows
 - Native-first data: Overview drives and activity, Disk Analysis scans with
   live progress and cancellation, Cleanup candidates and quarantine, Duplicates,
   Reports, and Maintenance now read real values from Tauri commands. Mock data
-  remains only in the browser preview.
+  remains only in the browser preview. Preferences persist through the Tauri
+  store plugin in the installed app.
 
 ### Notes
 
