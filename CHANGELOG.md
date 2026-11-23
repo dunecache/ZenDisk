@@ -5,19 +5,23 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
-### Fixed
-
-- First launch after install could show "Could not load storage information":
-  operation history was queried before its SQLite table existed. The table is
-  now created on first read, and Overview keeps showing real drive data if the
-  activity feed fails.
-
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
 - Organizer apply, Task Scheduler, and SMART/startup/application inventory are
   still unavailable; storage growth has no snapshot source yet and renders an
   empty state instead of invented values.
+
+## [0.1.46] - 2026-11-23
+
+Stable Windows release built by CI run `45154890715` from commit `9b37c90`.
+
+### Fixed
+
+- First launch after install could show "Could not load storage information":
+  operation history was queried before its SQLite table existed. The table is
+  now created on first read, and Overview keeps showing real drive data if the
+  activity feed fails.
 
 ## [0.1.41] - 2026-11-23
 
