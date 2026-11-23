@@ -194,8 +194,7 @@ fn jobs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-#[tauri::command]
-pub fn disk_list() -> Result<Vec<DiskInfo>> {
+pub(crate) fn disk_list_impl() -> Result<Vec<DiskInfo>> {
     let disks = Disks::new_with_refreshed_list();
     let mut out = Vec::new();
     for disk in disks.list() {
@@ -219,6 +218,13 @@ pub fn disk_list() -> Result<Vec<DiskInfo>> {
         });
     }
     Ok(out)
+}
+
+#[tauri::command]
+pub async fn disk_list() -> Result<Vec<DiskInfo>> {
+    tauri::async_runtime::spawn_blocking(disk_list_impl)
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
 #[derive(Default)]
@@ -265,7 +271,14 @@ fn walk_tree(
         } else {
             stats.bytes += metadata.len();
             node.size_bytes += metadata.len();
-            if let Ok(file) = file_entry(&child_path) { stats.files.push(file); }
+            if let Ok(file) = file_entry(&child_path) {
+                stats.files.push(file);
+                // Keep the candidate set bounded on very large drives.
+                if stats.files.len() > 200 {
+                    stats.files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+                    stats.files.truncate(20);
+                }
+            }
         }
         if let Ok(elapsed) = last_emit.elapsed() {
             if elapsed.as_millis() >= 200 {
@@ -279,8 +292,7 @@ fn walk_tree(
     Ok(node)
 }
 
-#[tauri::command]
-pub fn disk_analyze(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
+pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
     let root = safe_path(&drive_id)?;
     let cancel = Arc::new(AtomicBool::new(false));
     jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
@@ -313,6 +325,13 @@ pub fn disk_analyze(app: AppHandle, drive_id: String, job_id: String) -> Result<
 }
 
 #[tauri::command]
+pub async fn disk_analyze(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
+    tauri::async_runtime::spawn_blocking(move || disk_analyze_impl(app, drive_id, job_id))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
 pub fn analyze_cancel(job_id: String) -> Result<bool> {
     let guard = jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?;
     if let Some(flag) = guard.get(&job_id) {
@@ -323,14 +342,20 @@ pub fn analyze_cancel(job_id: String) -> Result<bool> {
     }
 }
 
-#[tauri::command]
-pub fn files_list(path: String) -> Result<Vec<FileEntry>> {
+pub(crate) fn files_list_impl(path: String) -> Result<Vec<FileEntry>> {
     let root = safe_path(&path)?;
     let mut out = Vec::new();
     for entry in fs::read_dir(root).map_err(|e| CommandError::new("io", e.to_string(), true))?.flatten() {
         if let Ok(file) = file_entry(&entry.path()) { out.push(file); }
     }
     Ok(out)
+}
+
+#[tauri::command]
+pub async fn files_list(path: String) -> Result<Vec<FileEntry>> {
+    tauri::async_runtime::spawn_blocking(move || files_list_impl(path))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
 fn quarantine_dir(app: &AppHandle) -> Result<PathBuf> {
@@ -340,8 +365,7 @@ fn quarantine_dir(app: &AppHandle) -> Result<PathBuf> {
     Ok(dir)
 }
 
-#[tauri::command]
-pub fn cleanup_preview(paths: Vec<String>) -> Result<Vec<FileEntry>> {
+pub(crate) fn cleanup_preview_impl(paths: Vec<String>) -> Result<Vec<FileEntry>> {
     let mut out = Vec::new();
     for path in paths {
         let safe = safe_path(&path)?;
@@ -350,11 +374,17 @@ pub fn cleanup_preview(paths: Vec<String>) -> Result<Vec<FileEntry>> {
     Ok(out)
 }
 
+#[tauri::command]
+pub async fn cleanup_preview(paths: Vec<String>) -> Result<Vec<FileEntry>> {
+    tauri::async_runtime::spawn_blocking(move || cleanup_preview_impl(paths))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
 /// Lists bounded, top-level temporary-file candidates from known scratch
 /// locations. Nothing is moved or deleted here; the UI still previews and
 /// confirms every file before `cleanup_execute` runs.
-#[tauri::command]
-pub fn cleanup_candidates() -> Result<Vec<CleanupCandidate>> {
+pub(crate) fn cleanup_candidates_impl() -> Result<Vec<CleanupCandidate>> {
     let mut roots: Vec<PathBuf> = vec![std::env::temp_dir()];
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         let base = PathBuf::from(local);
@@ -410,7 +440,13 @@ pub fn cleanup_candidates() -> Result<Vec<CleanupCandidate>> {
 }
 
 #[tauri::command]
-pub fn cleanup_execute(app: AppHandle, paths: Vec<String>) -> Result<OperationRecord> {
+pub async fn cleanup_candidates() -> Result<Vec<CleanupCandidate>> {
+    tauri::async_runtime::spawn_blocking(cleanup_candidates_impl)
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+pub(crate) fn cleanup_execute_impl(app: AppHandle, paths: Vec<String>) -> Result<OperationRecord> {
     let quarantine = quarantine_dir(&app)?;
     let mut completed = 0i64;
     let mut failed = 0i64;
@@ -433,6 +469,13 @@ pub fn cleanup_execute(app: AppHandle, paths: Vec<String>) -> Result<OperationRe
     };
     write_history(&app, &record)?;
     Ok(record)
+}
+
+#[tauri::command]
+pub async fn cleanup_execute(app: AppHandle, paths: Vec<String>) -> Result<OperationRecord> {
+    tauri::async_runtime::spawn_blocking(move || cleanup_execute_impl(app, paths))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
 #[tauri::command]
@@ -459,8 +502,7 @@ pub fn organizer_preview(paths: Vec<String>) -> Result<Vec<OperationRecord>> {
     Ok(out)
 }
 
-#[tauri::command]
-pub fn duplicates_scan(app: AppHandle, root: String, job_id: String) -> Result<Vec<DuplicateGroup>> {
+pub(crate) fn duplicates_scan_impl(app: AppHandle, root: String, job_id: String) -> Result<Vec<DuplicateGroup>> {
     let root_path = safe_path(&root)?;
     let cancel = Arc::new(AtomicBool::new(false));
     jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
@@ -515,6 +557,13 @@ pub fn duplicates_scan(app: AppHandle, root: String, job_id: String) -> Result<V
     Ok(groups)
 }
 
+#[tauri::command]
+pub async fn duplicates_scan(app: AppHandle, root: String, job_id: String) -> Result<Vec<DuplicateGroup>> {
+    tauri::async_runtime::spawn_blocking(move || duplicates_scan_impl(app, root, job_id))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
 pub fn partial_digest(path: &Path) -> Result<String> {
     use std::io::Read;
     let mut file = fs::File::open(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
@@ -542,8 +591,7 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-#[tauri::command]
-pub fn system_metrics() -> Result<Vec<Metric>> {
+pub(crate) fn system_metrics_impl() -> Result<Vec<Metric>> {
     let mut system = System::new_all();
     system.refresh_all();
     let cpu = system.global_cpu_usage() as f64;
@@ -553,6 +601,13 @@ pub fn system_metrics() -> Result<Vec<Metric>> {
         Metric { id: "cpu".into(), label: "CPU".into(), value: cpu, max: 100.0, display_value: format!("{:.0}%", cpu), detail: "Current processor load".into(), supported: true },
         Metric { id: "memory".into(), label: "Memory".into(), value: used / (1024.0 * 1024.0), max: total / (1024.0 * 1024.0), display_value: format!("{:.1} GB", used / (1024.0 * 1024.0 * 1024.0)), detail: "of installed memory".into(), supported: true },
     ])
+}
+
+#[tauri::command]
+pub async fn system_metrics() -> Result<Vec<Metric>> {
+    tauri::async_runtime::spawn_blocking(system_metrics_impl)
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
 #[tauri::command]

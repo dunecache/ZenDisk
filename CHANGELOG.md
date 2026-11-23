@@ -5,6 +5,12 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening Disk Analysis could freeze the app while a drive was scanned. Heavy
+  native commands now run on Tauri's blocking pool instead of the UI thread,
+  and scan candidates are bounded during traversal.
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

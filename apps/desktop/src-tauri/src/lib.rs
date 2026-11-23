@@ -49,12 +49,12 @@ pub fn smoke() -> std::result::Result<(), String> {
     fs::write(&a, vec![1u8; 4096]).map_err(|e| e.to_string())?;
     fs::write(&b, vec![1u8; 4096]).map_err(|e| e.to_string())?;
 
-    let list = commands::files_list(root.to_string_lossy().into_owned()).map_err(|e| e.message)?;
-    let preview = commands::cleanup_preview(vec![a.to_string_lossy().into_owned()]).map_err(|e| e.message)?;
+    let list = commands::files_list_impl(root.to_string_lossy().into_owned()).map_err(|e| e.message)?;
+    let preview = commands::cleanup_preview_impl(vec![a.to_string_lossy().into_owned()]).map_err(|e| e.message)?;
     let digest_a = commands::full_digest(&a).map_err(|e| e.message)?;
     let digest_b = commands::full_digest(&b).map_err(|e| e.message)?;
-    let metrics = commands::system_metrics().map_err(|e| e.message)?;
-    let candidates = commands::cleanup_candidates().map_err(|e| e.message)?;
+    let metrics = commands::system_metrics_impl().map_err(|e| e.message)?;
+    let candidates = commands::cleanup_candidates_impl().map_err(|e| e.message)?;
     let report = serde_json::json!({
         "filesListed": list.len(),
         "previewFiles": preview.len(),
