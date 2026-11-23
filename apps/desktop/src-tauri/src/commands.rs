@@ -592,7 +592,9 @@ fn ensure_history_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS operations (id TEXT PRIMARY KEY, kind TEXT, title TEXT, at TEXT, completed INTEGER, failed INTEGER, skipped INTEGER, total INTEGER, reclaimed INTEGER, recoverable INTEGER)",
         [],
-    ).map_err(|e| CommandError::new("db", e.to_string(), true))
+    )
+    .map(|_| ())
+    .map_err(|e| CommandError::new("db", e.to_string(), true))
 }
 
 fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
