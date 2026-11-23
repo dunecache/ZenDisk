@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Publish to the rolling stable channel as well as beta'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - beta
+          - stable
 
 permissions:
   contents: read
@@ -104,60 +113,80 @@ jobs:
           if (-not $uninstaller) { throw "Uninstaller was not found" }
           Start-Process -FilePath $uninstaller.FullName -ArgumentList "/S" -Wait
 
-      - name: Generate update manifest
+      - name: Generate update manifests
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
+        env:
+          PUBLISH_STABLE: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'stable' }}
         run: |
           $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
           $setup = Get-ChildItem -Path $bundle -Filter "*-setup.exe" | Select-Object -First 1
           $version = (Get-Content apps/desktop/tauri.ci.json -Raw | ConvertFrom-Json).version
           $signature = (Get-Content "$($setup.FullName).sig" -Raw).Trim()
-          $assetUrl = "https://github.com/${{ github.repository }}/releases/download/windows-latest/$($setup.Name)"
-          @{
-            version = $version
-            notes = "Automated Windows build from ${{ github.sha }}"
-            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = @{
-              "windows-x86_64" = @{
-                signature = $signature
-                url = $assetUrl
+          $tags = @('windows-latest')
+          if ($env:PUBLISH_STABLE -eq 'true') { $tags += 'windows-stable' }
+          foreach ($tag in $tags) {
+            # Both releases host an asset named latest.json, so generate each
+            # manifest in its own directory before uploading.
+            $dir = Join-Path $env:RUNNER_TEMP "manifest-$tag"
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            $assetUrl = "https://github.com/${{ github.repository }}/releases/download/$tag/$($setup.Name)"
+            @{
+              version = $version
+              notes = "Automated Windows build from ${{ github.sha }}"
+              pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+              platforms = @{
+                "windows-x86_64" = @{
+                  signature = $signature
+                  url = $assetUrl
+                }
               }
-            }
-          } | ConvertTo-Json -Depth 10 | Set-Content latest.json -Encoding utf8
-          Get-Content latest.json
+            } | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $dir 'latest.json') -Encoding utf8
+            Get-Content (Join-Path $dir 'latest.json')
+          }
 
       # Actions artifact storage is quota-limited on this account, so publish
-      # the installer as a rolling pre-release asset instead.
+      # installers as rolling release assets instead.
       - name: Publish Windows build
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_STABLE: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'stable' }}
         run: |
-          $tag = "windows-latest"
           $bundle = "apps/desktop/src-tauri/target/release/bundle/nsis"
           $setup = Get-ChildItem -Path $bundle -Filter "*-setup.exe" | Select-Object -First 1
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --prerelease --title "Windows build (latest)" --notes "Automated Windows build from main."
-          }
-          # Order matters: the manifest is uploaded last so clients never see
-          # a signature pointing at an asset that is not yet uploaded.
-          gh release upload $tag $setup.FullName --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Failed to upload installer" }
-          gh release upload $tag "$($setup.FullName).sig" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Failed to upload signature" }
-          gh release upload $tag latest.json --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Failed to upload update manifest" }
+          $tags = @('windows-latest')
+          if ($env:PUBLISH_STABLE -eq 'true') { $tags += 'windows-stable' }
+          foreach ($tag in $tags) {
+            $isStable = $tag -eq 'windows-stable'
+            gh release view $tag 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              if ($isStable) {
+                gh release create $tag --title "ZenDisk stable" --notes "Rolling stable channel, published from main."
+              } else {
+                gh release create $tag --prerelease --title "Windows build (latest)" --notes "Automated Windows build from main."
+              }
+            }
+            # Order matters: the manifest is uploaded last so clients never see
+            # a signature pointing at an asset that is not yet uploaded.
+            gh release upload $tag $setup.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload installer to $tag" }
+            gh release upload $tag "$($setup.FullName).sig" --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload signature to $tag" }
+            $manifest = Join-Path $env:RUNNER_TEMP "manifest-$tag/latest.json"
+            gh release upload $tag $manifest --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload update manifest to $tag" }
 
-          # Remove assets from previous builds; filenames are versioned, so
-          # --clobber alone would leave stale installers in the release.
-          $assets = gh release view $tag --json assets --jq '.assets[].name'
-          foreach ($asset in $assets) {
-            $isOldInstaller = $asset -like 'ZenDisk_*-setup.exe' -and $asset -ne $setup.Name
-            $isOldSignature = $asset -like 'ZenDisk_*-setup.exe.sig' -and $asset -ne "$($setup.Name).sig"
-            if ($isOldInstaller -or $isOldSignature -or $asset -eq 'zendisk-release.zip') {
-              gh release delete-asset $tag $asset --yes
+            # Remove assets from previous builds; filenames are versioned, so
+            # --clobber alone would leave stale installers in the release.
+            $assets = gh release view $tag --json assets --jq '.assets[].name'
+            foreach ($asset in $assets) {
+              $isOldInstaller = $asset -like 'ZenDisk_*-setup.exe' -and $asset -ne $setup.Name
+              $isOldSignature = $asset -like 'ZenDisk_*-setup.exe.sig' -and $asset -ne "$($setup.Name).sig"
+              if ($isOldInstaller -or $isOldSignature -or $asset -eq 'zendisk-release.zip') {
+                gh release delete-asset $tag $asset --yes
+              }
             }
           }
           exit 0

@@ -5,12 +5,15 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Rolling `windows-stable` update channel, published by CI only on an explicit
+  stable dispatch; configured as the installed-app updater endpoint.
+
 ### Notes
 
 - Clean install of `v0.1.31` verified on Windows hardware (2026-11-23).
   Upgrade, OTA, SMART, and permission paths remain unverified.
-- The installed-app updater endpoint still targets the rolling
-  `windows-latest` beta channel, not the stable tag.
 
 ## [0.1.31] - 2026-11-23
 

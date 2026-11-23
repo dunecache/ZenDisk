@@ -11,10 +11,23 @@
   install was verified on Windows hardware the same day; upgrade, OTA, SMART,
   and permission paths remain unverified. Future stable tags should follow a
   clean Windows 10/11 verification (Phase 7 manual checks).
-- The installed-app updater endpoint remains `windows-latest` (beta). A stable
-  release tag is a one-off artifact; clients follow the rolling beta manifest
-  until a rolling stable channel is introduced.
+- A rolling `windows-stable` release is the **stable channel**. CI publishes to
+  it only on an explicit `workflow_dispatch` with `channel=stable`; ordinary
+  pushes to `main` keep updating `windows-latest` alone. Both channels receive
+  the same signed installer and a `latest.json` whose asset URL points at that
+  channel's own release.
+- The installed-app updater endpoint is
+  `https://github.com/dunecache/ZenDisk/releases/download/windows-stable/latest.json`.
+  Versioned stable tags such as `v0.1.31` remain one-off historical artifacts
+  and are not the update feed.
 - PR builds never publish and never need signing secrets.
+
+## Signing
+
+The installer is signed with the Tauri updater key (minisign) so the updater can
+verify downloads. There is no Authenticode certificate, so Windows SmartScreen
+may warn on first run; each stable release's notes state this explicitly. An
+Authenticode decision remains open.
 
 ## Uninstall behaviour
 
