@@ -260,8 +260,12 @@ fn mark_partial(stats: &mut ScanStats, path: &Path, reason: &str) {
 fn is_link(metadata: &fs::Metadata) -> bool {
     #[cfg(windows)]
     {
-        use std::os::windows::fs::FileTypeExt;
-        metadata.file_type().is_symlink() || metadata.file_type().is_junction()
+        use std::os::windows::fs::MetadataExt;
+        // FILE_ATTRIBUTE_REPARSE_POINT covers junctions, mounts, and other
+        // links that would otherwise send the walker outside the drive.
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+        metadata.file_type().is_symlink()
+            || (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
     }
     #[cfg(not(windows))]
     {
