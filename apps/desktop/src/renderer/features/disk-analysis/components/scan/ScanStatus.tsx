@@ -7,6 +7,7 @@ import type { ScanSkippedLocation, ScanState } from "@/types";
 export interface ScanStatusProps {
   state: ScanState;
   isPartial?: boolean;
+  budgetExceeded?: boolean;
   skippedLocations?: ScanSkippedLocation[];
   progress?: { scannedBytes: number; scannedItems: number } | null;
   onScan?: () => void;
@@ -18,6 +19,7 @@ export interface ScanStatusProps {
 export function ScanStatus({
   state,
   isPartial = false,
+  budgetExceeded = false,
   skippedLocations = [],
   progress,
   onScan,
@@ -59,7 +61,14 @@ export function ScanStatus({
           Scanned {new Intl.NumberFormat().format(progress.scannedItems)} items · {formatBytes(progress.scannedBytes)}
         </p>
       )}
-      {isPartial && (
+      {budgetExceeded && (
+        <InlineAlert variant="info" title="Scan limited">
+          The scan stopped at its item/time limit. Results cover the locations
+          visited first; use Rescan after closing other heavy applications if
+          you need a wider view.
+        </InlineAlert>
+      )}
+      {isPartial && (skippedLocations.length > 0 || !budgetExceeded) && (
         <InlineAlert variant="warning" title="Partial results">
           {skippedLocations.length > 0 ? (
             <>

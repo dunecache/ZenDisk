@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { nativeApi } from "@/lib/native/client";
 import { withFallback } from "@/lib/native/withFallback";
@@ -18,6 +18,10 @@ export function useAnalysis(driveId: string) {
     () => `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${revision}`,
     [driveId, revision],
   );
+
+  // Cancel the previous native scan when the drive changes, the user rescans,
+  // or this screen unmounts; otherwise full-drive scans accumulate.
+  useEffect(() => () => { void nativeApi.disk.cancel(jobId); }, [jobId]);
 
   const query = useQuery({
     // A new job id starts a fresh scan instead of replaying a cached result.
@@ -44,6 +48,8 @@ export function useAnalysis(driveId: string) {
       ),
     enabled: Boolean(driveId),
     staleTime: 30_000,
+    // Retrying a full-drive scan doubles the work and delays real errors.
+    retry: false,
   });
 
   const rescan = useCallback(() => setRevision((value) => value + 1), []);

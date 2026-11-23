@@ -5,6 +5,13 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Disk Analysis now reuses each file's existing metadata instead of issuing a
+  second stat call, skips protected system folders by design, and stops at a
+  200,000-item / 25-second budget with an explicit "Scan limited" state.
+  Switching drives or rescanning cancels the previous scan.
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

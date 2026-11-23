@@ -44,6 +44,8 @@ export interface AnalysisData {
   tree: TreeNode[];
   /** Locations the scanner could not read; empty for a complete scan. */
   skippedLocations: ScanSkippedLocation[];
+  /** True when the item/time budget stopped the scan before the whole drive. */
+  budgetExceeded: boolean;
 }
 
 export interface TreeNode {

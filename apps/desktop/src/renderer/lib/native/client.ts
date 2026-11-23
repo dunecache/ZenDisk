@@ -73,6 +73,7 @@ export interface NativeAnalysisData {
   isPartial: boolean;
   scanState: string;
   skippedLocations: { path: string; reason: string }[];
+  budgetExceeded: boolean;
 }
 
 export interface NativeMetric {

@@ -6,7 +6,7 @@ use std::io::Seek;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -72,6 +72,7 @@ pub struct AnalysisData {
     pub is_partial: bool,
     pub scan_state: String,
     pub skipped_locations: Vec<SkippedLocation>,
+    pub budget_exceeded: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -183,8 +184,9 @@ pub fn safe_path(input: &str) -> Result<PathBuf> {
     Ok(canonical)
 }
 
-fn file_entry(path: &Path) -> Result<FileEntry> {
-    let metadata = fs::metadata(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+/// Build an entry from metadata the walker already obtained. Avoids a second
+/// `stat` syscall per file, which dominated scan time on large drives.
+fn file_entry_from_metadata(path: &Path, metadata: &fs::Metadata) -> Result<FileEntry> {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
     let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
     let modified_at = format!("{}", modified.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
@@ -195,6 +197,11 @@ fn file_entry(path: &Path) -> Result<FileEntry> {
         size_bytes: metadata.len(),
         modified_at,
     })
+}
+
+fn file_entry(path: &Path) -> Result<FileEntry> {
+    let metadata = fs::metadata(path).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    file_entry_from_metadata(path, &metadata)
 }
 
 static JOBS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
@@ -235,7 +242,6 @@ pub async fn disk_list() -> Result<Vec<DiskInfo>> {
         .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
-#[derive(Default)]
 struct ScanStats {
     bytes: u64,
     items: usize,
@@ -243,6 +249,23 @@ struct ScanStats {
     cancelled: bool,
     files: Vec<FileEntry>,
     skipped: Vec<SkippedLocation>,
+    budget_exceeded: bool,
+    deadline: Instant,
+}
+
+impl Default for ScanStats {
+    fn default() -> Self {
+        Self {
+            bytes: 0,
+            items: 0,
+            partial: false,
+            cancelled: false,
+            files: Vec::new(),
+            skipped: Vec::new(),
+            budget_exceeded: false,
+            deadline: Instant::now() + SCAN_TIME_LIMIT,
+        }
+    }
 }
 
 fn mark_partial(stats: &mut ScanStats, path: &Path, reason: &str) {
@@ -273,6 +296,27 @@ fn is_link(metadata: &fs::Metadata) -> bool {
     }
 }
 
+/// Protected OS folders are unreadable without elevation and are not useful
+/// storage-cleanup targets. Skipping them by design avoids a partial result
+/// on an otherwise healthy drive.
+fn is_system_location(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "system volume information"
+            | "$recycle.bin"
+            | "$windows.~bt"
+            | "$windows.~ws"
+            | "recovery"
+            | "perflogs"
+            | "msocache"
+            | "config.msi"
+            | "documents and settings"
+    )
+}
+
+const SCAN_ITEM_LIMIT: usize = 200_000;
+const SCAN_TIME_LIMIT: Duration = Duration::from_secs(25);
+
 fn walk_tree(
     path: &Path,
     depth: usize,
@@ -302,6 +346,16 @@ fn walk_tree(
             stats.partial = true;
             break;
         }
+        // Hard budget keeps a full drive scan bounded and responsive.
+        if stats.items >= SCAN_ITEM_LIMIT || stats.deadline.elapsed() >= SCAN_TIME_LIMIT {
+            stats.budget_exceeded = true;
+            stats.partial = true;
+            break;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if is_system_location(&name) {
+            continue;
+        }
         let child_path = entry.path();
         let metadata = match entry.metadata() {
             Ok(m) => m,
@@ -322,7 +376,7 @@ fn walk_tree(
         } else {
             stats.bytes += metadata.len();
             node.size_bytes += metadata.len();
-            if let Ok(file) = file_entry(&child_path) {
+            if let Ok(file) = file_entry_from_metadata(&child_path, &metadata) {
                 stats.files.push(file);
                 // Keep the candidate set bounded on very large drives.
                 if stats.files.len() > 200 {
@@ -373,6 +427,7 @@ pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String
             "completed".into()
         },
         skipped_locations: stats.skipped,
+        budget_exceeded: stats.budget_exceeded,
     })
 }
 
@@ -742,6 +797,15 @@ pub fn reports_summary(app: AppHandle) -> Result<Vec<OperationRecord>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn skips_protected_system_locations() {
+        assert!(is_system_location("System Volume Information"));
+        assert!(is_system_location("$Recycle.Bin"));
+        assert!(is_system_location("$WINDOWS.~BT"));
+        assert!(!is_system_location("Documents"));
+        assert!(!is_system_location("Program Files"));
+    }
 
     #[test]
     fn history_table_exists_on_first_read() {

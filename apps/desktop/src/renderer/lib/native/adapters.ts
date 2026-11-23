@@ -186,6 +186,7 @@ export function analysisDataFromNative(
     largestFolders: native.largestFolders.map((folder) => fileEntryFromNative(folder, true)),
     tree,
     skippedLocations: native.skippedLocations,
+    budgetExceeded: native.budgetExceeded,
   };
 }
 

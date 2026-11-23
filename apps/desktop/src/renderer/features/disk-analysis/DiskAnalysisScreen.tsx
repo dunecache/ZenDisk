@@ -78,6 +78,7 @@ export function DiskAnalysisScreen() {
             <ScanStatus
               state={scanning ? "scanning" : (data?.scanState ?? "idle")}
               isPartial={data?.isPartial}
+              budgetExceeded={data?.budgetExceeded}
               skippedLocations={data?.skippedLocations}
               progress={scanning ? progress : null}
               onScan={rescan}
@@ -124,7 +125,10 @@ export function DiskAnalysisScreen() {
                 </FilterBar>
               </Section>
 
-              <Section title="Storage map" description="The tree covers the first three folder levels.">
+              <Section
+                title="Storage map"
+                description="The tree covers the first three folder levels; protected system folders are excluded."
+              >
                 <TreemapView tree={data.tree} />
               </Section>
 
