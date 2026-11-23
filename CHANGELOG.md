@@ -5,18 +5,22 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
-### Fixed
-
-- Disk Analysis no longer reports a failed scan when a drive contains junctions
-  or symlinks; those are skipped by design. Genuinely unreadable locations are
-  listed with their reason, and the status is "Partial" rather than "Failed".
-
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
 - Organizer apply, Task Scheduler, and SMART/startup/application inventory are
   still unavailable; storage growth has no snapshot source yet and renders an
   empty state instead of invented values.
+
+## [0.1.54] - 2026-11-23
+
+Stable Windows release built by CI run `45159805940` from commit `6c113d0`.
+
+### Fixed
+
+- Disk Analysis no longer reports a failed scan when a drive contains junctions
+  or symlinks; those are skipped by design. Genuinely unreadable locations are
+  listed with their reason, and the status is "Partial" rather than "Failed".
 
 ## [0.1.49] - 2026-11-23
 
