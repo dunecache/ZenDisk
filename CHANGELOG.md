@@ -5,6 +5,12 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Disk Analysis no longer reports a failed scan when a drive contains junctions
+  or symlinks; those are skipped by design. Genuinely unreadable locations are
+  listed with their reason, and the status is "Partial" rather than "Failed".
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

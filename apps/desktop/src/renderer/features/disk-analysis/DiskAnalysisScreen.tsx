@@ -78,6 +78,7 @@ export function DiskAnalysisScreen() {
             <ScanStatus
               state={scanning ? "scanning" : (data?.scanState ?? "idle")}
               isPartial={data?.isPartial}
+              skippedLocations={data?.skippedLocations}
               progress={scanning ? progress : null}
               onScan={rescan}
               onCancel={() => void cancel()}
@@ -123,7 +124,7 @@ export function DiskAnalysisScreen() {
                 </FilterBar>
               </Section>
 
-              <Section title="Storage map">
+              <Section title="Storage map" description="The tree covers the first three folder levels.">
                 <TreemapView tree={data.tree} />
               </Section>
 

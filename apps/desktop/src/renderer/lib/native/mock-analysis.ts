@@ -47,6 +47,7 @@ export function analysisForDrive(driveId: string): AnalysisData {
       isDirectory: true,
     })),
     tree,
+    skippedLocations: [],
   };
 }
 

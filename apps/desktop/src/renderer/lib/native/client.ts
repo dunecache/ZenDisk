@@ -72,6 +72,7 @@ export interface NativeAnalysisData {
   largestFolders: NativeFileEntry[];
   isPartial: boolean;
   scanState: string;
+  skippedLocations: { path: string; reason: string }[];
 }
 
 export interface NativeMetric {

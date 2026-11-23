@@ -71,6 +71,7 @@ pub struct AnalysisData {
     pub largest_folders: Vec<FileEntry>,
     pub is_partial: bool,
     pub scan_state: String,
+    pub skipped_locations: Vec<SkippedLocation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,6 +79,13 @@ pub struct AnalysisData {
 pub struct CleanupCandidate {
     pub category: String,
     pub files: Vec<FileEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkippedLocation {
+    pub path: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -234,6 +242,31 @@ struct ScanStats {
     partial: bool,
     cancelled: bool,
     files: Vec<FileEntry>,
+    skipped: Vec<SkippedLocation>,
+}
+
+fn mark_partial(stats: &mut ScanStats, path: &Path, reason: &str) {
+    stats.partial = true;
+    if stats.skipped.len() < 20 {
+        stats.skipped.push(SkippedLocation {
+            path: path.to_string_lossy().into_owned(),
+            reason: reason.to_string(),
+        });
+    }
+}
+
+/// Junctions and symlinks are navigation shortcuts, not folders to analyze.
+/// Skipping them is expected and must not mark a scan as partial.
+fn is_link(metadata: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileTypeExt;
+        metadata.file_type().is_symlink() || metadata.file_type().is_junction()
+    }
+    #[cfg(not(windows))]
+    {
+        metadata.file_type().is_symlink()
+    }
 }
 
 fn walk_tree(
@@ -254,15 +287,29 @@ fn walk_tree(
     };
     let entries = match fs::read_dir(path) {
         Ok(entries) => entries,
-        Err(_) => { stats.partial = true; return Ok(node); }
+        Err(_) => {
+            mark_partial(stats, path, "Access denied or folder unreadable");
+            return Ok(node);
+        }
     };
     for entry in entries.flatten() {
-        if cancel.load(Ordering::Relaxed) { stats.cancelled = true; stats.partial = true; break; }
+        if cancel.load(Ordering::Relaxed) {
+            stats.cancelled = true;
+            stats.partial = true;
+            break;
+        }
         let child_path = entry.path();
-        let metadata = match entry.metadata() { Ok(m) => m, Err(_) => { stats.partial = true; continue; } };
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => {
+                mark_partial(stats, &child_path, "Metadata unavailable");
+                continue;
+            }
+        };
         stats.items += 1;
         if metadata.is_dir() {
-            if metadata.file_type().is_symlink() { continue; }
+            // Reparse points are skipped by design, not a partial result.
+            if is_link(&metadata) { continue; }
             if depth < 3 {
                 let child = walk_tree(&child_path, depth + 1, cancel, stats, app, job_id, last_emit)?;
                 node.size_bytes += child.size_bytes;
@@ -317,10 +364,11 @@ pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String
         scan_state: if stats.cancelled {
             "cancelled".into()
         } else if stats.partial {
-            "failed".into()
+            "partial".into()
         } else {
             "completed".into()
         },
+        skipped_locations: stats.skipped,
     })
 }
 

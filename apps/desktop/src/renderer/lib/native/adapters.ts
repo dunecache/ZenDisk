@@ -156,6 +156,7 @@ function scanStateFromNative(state: string): ScanState {
     case "completed":
     case "cancelled":
     case "failed":
+    case "partial":
     case "idle":
     case "discovering":
     case "scanning":
@@ -184,6 +185,7 @@ export function analysisDataFromNative(
     largestFiles: native.largestFiles.map((file) => fileEntryFromNative(file, false)),
     largestFolders: native.largestFolders.map((folder) => fileEntryFromNative(folder, true)),
     tree,
+    skippedLocations: native.skippedLocations,
   };
 }
 

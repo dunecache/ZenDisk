@@ -7,7 +7,13 @@ export type ScanState =
   | "paused"
   | "completed"
   | "cancelled"
-  | "failed";
+  | "failed"
+  | "partial";
+
+export interface ScanSkippedLocation {
+  path: string;
+  reason: string;
+}
 
 export interface FileTypeStat {
   category: string;
@@ -36,6 +42,8 @@ export interface AnalysisData {
   largestFiles: DiskEntry[];
   largestFolders: DiskEntry[];
   tree: TreeNode[];
+  /** Locations the scanner could not read; empty for a complete scan. */
+  skippedLocations: ScanSkippedLocation[];
 }
 
 export interface TreeNode {
