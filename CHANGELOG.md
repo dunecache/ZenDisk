@@ -5,18 +5,22 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
-### Added
-
-- Real pause/resume for disk analysis scans. The Pause and Resume buttons now
-  call a native command, the scan suspends without consuming its time budget,
-  and Cancel remains available while paused.
-
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
 - Organizer apply, Task Scheduler, and SMART/startup/application inventory are
   still unavailable; storage growth has no snapshot source yet and renders an
   empty state instead of invented values.
+
+## [0.1.60] - 2026-11-24
+
+Stable Windows release built by CI run `45342607410` from commit `03170aa`.
+
+### Added
+
+- Real pause/resume for disk analysis scans. The Pause and Resume buttons now
+  call a native command, the scan suspends without consuming its time budget,
+  and Cancel remains available while paused.
 
 ## [0.1.57] - 2026-11-23
 
