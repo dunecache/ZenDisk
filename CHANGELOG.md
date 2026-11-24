@@ -5,6 +5,17 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Notes
+
+- Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
+- Organizer apply, Task Scheduler, and SMART/startup/application inventory are
+  still unavailable; storage growth has no snapshot source yet and renders an
+  empty state instead of invented values.
+
+## [0.1.63] - 2026-11-24
+
+Stable Windows release built by CI run `45360470095` from commit `11ee2d8`.
+
 ### Fixed
 
 - Partial results now report the true number of unreadable locations instead of
@@ -12,13 +23,6 @@ All notable changes to ZenDisk are documented here. Format follows
   budget; only genuine read failures mark a scan partial. Protected folders
   such as `WindowsApps` are excluded by design, and the UI shows the real count
   with an expandable list of sampled paths and the underlying OS error.
-
-### Notes
-
-- Upgrade, OTA, SMART, and permission paths remain unverified on hardware.
-- Organizer apply, Task Scheduler, and SMART/startup/application inventory are
-  still unavailable; storage growth has no snapshot source yet and renders an
-  empty state instead of invented values.
 
 ## [0.1.60] - 2026-11-24
 
