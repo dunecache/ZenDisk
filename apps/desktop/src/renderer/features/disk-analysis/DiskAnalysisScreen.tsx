@@ -26,9 +26,10 @@ export function DiskAnalysisScreen() {
   const [query, setQuery] = useState("");
 
   const { data: overview } = useOverview();
-  const { data, isLoading, isError, jobId, rescan, cancel } = useAnalysis(driveId);
+  const { data, isLoading, isError, jobId, rescan, pause, resume, cancel, paused } = useAnalysis(driveId);
   const progress = useScanProgress(jobId);
-  const scanning = progress !== null && isLoading;
+  const active = isLoading;
+  const scanState = active ? (paused ? "paused" : "scanning") : (data?.scanState ?? "idle");
 
   const setDrive = (id: string) => setSearchParams({ drive: id });
 
@@ -76,12 +77,14 @@ export function DiskAnalysisScreen() {
         <div className="flex flex-col gap-[var(--space-8)]">
           <Section>
             <ScanStatus
-              state={scanning ? "scanning" : (data?.scanState ?? "idle")}
+              state={scanState}
               isPartial={data?.isPartial}
               budgetExceeded={data?.budgetExceeded}
               skippedLocations={data?.skippedLocations}
-              progress={scanning ? progress : null}
+              progress={active ? progress : null}
               onScan={rescan}
+              onPause={pause}
+              onResume={resume}
               onCancel={() => void cancel()}
             />
           </Section>

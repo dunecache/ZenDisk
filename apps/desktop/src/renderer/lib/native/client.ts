@@ -115,6 +115,8 @@ export const nativeApi = {
       return invoke<NativeAnalysisData>("disk_analyze", { driveId: path, jobId: job });
     },
     cancel: (jobId: string) => invoke<boolean>("analyze_cancel", { jobId: jobIdSchema.parse(jobId) }),
+    pause: (jobId: string, pause: boolean) =>
+      invoke<boolean>("analyze_pause", { jobId: jobIdSchema.parse(jobId), pause }),
     onScanProgress: (handler: (progress: NativeProgress) => void) =>
       listen<NativeProgress>("zendisk://scan-progress", (event) => handler(event.payload)),
   },

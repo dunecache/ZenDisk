@@ -5,6 +5,12 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Real pause/resume for disk analysis scans. The Pause and Resume buttons now
+  call a native command, the scan suspends without consuming its time budget,
+  and Cancel remains available while paused.
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

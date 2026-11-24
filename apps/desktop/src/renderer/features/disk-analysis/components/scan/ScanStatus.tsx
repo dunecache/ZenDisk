@@ -27,7 +27,7 @@ export function ScanStatus({
   onResume,
   onCancel,
 }: ScanStatusProps) {
-  const running = state === "discovering" || state === "scanning";
+  const running = state === "discovering" || state === "scanning" || state === "paused";
   const finished = state === "idle" || state === "completed" || state === "cancelled" || state === "failed" || state === "partial";
 
   return (

@@ -7,6 +7,7 @@ pub fn run() {
             commands::disk_list,
             commands::disk_analyze,
             commands::analyze_cancel,
+            commands::analyze_pause,
             commands::files_list,
             commands::cleanup_preview,
             commands::cleanup_candidates,

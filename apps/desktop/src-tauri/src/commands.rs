@@ -209,6 +209,12 @@ fn jobs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
     JOBS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Separate from cancellation: pausing suspends work without discarding it.
+static PAUSED_JOBS: OnceLock<Mutex<HashMap<String, Arc<AtomicBool>>>> = OnceLock::new();
+fn paused_jobs() -> &'static Mutex<HashMap<String, Arc<AtomicBool>>> {
+    PAUSED_JOBS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 pub(crate) fn disk_list_impl() -> Result<Vec<DiskInfo>> {
     let disks = Disks::new_with_refreshed_list();
     let mut out = Vec::new();
@@ -321,6 +327,7 @@ fn walk_tree(
     path: &Path,
     depth: usize,
     cancel: &AtomicBool,
+    paused: &AtomicBool,
     stats: &mut ScanStats,
     app: &AppHandle,
     job_id: &str,
@@ -346,6 +353,20 @@ fn walk_tree(
             stats.partial = true;
             break;
         }
+        // Pausing suspends the worker without consuming the time budget.
+        if paused.load(Ordering::Relaxed) {
+            let paused_at = Instant::now();
+            while paused.load(Ordering::Relaxed) {
+                if cancel.load(Ordering::Relaxed) {
+                    stats.cancelled = true;
+                    stats.partial = true;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            stats.deadline += paused_at.elapsed();
+            if stats.cancelled { break; }
+        }
         // Hard budget keeps a full drive scan bounded and responsive.
         if stats.items >= SCAN_ITEM_LIMIT || stats.deadline.elapsed() >= SCAN_TIME_LIMIT {
             stats.budget_exceeded = true;
@@ -369,7 +390,7 @@ fn walk_tree(
             // Reparse points are skipped by design, not a partial result.
             if is_link(&metadata) { continue; }
             if depth < 3 {
-                let child = walk_tree(&child_path, depth + 1, cancel, stats, app, job_id, last_emit)?;
+                let child = walk_tree(&child_path, depth + 1, cancel, paused, stats, app, job_id, last_emit)?;
                 node.size_bytes += child.size_bytes;
                 node.children.push(child);
             }
@@ -400,11 +421,13 @@ fn walk_tree(
 pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
     let root = safe_path(&drive_id)?;
     let cancel = Arc::new(AtomicBool::new(false));
+    let paused = Arc::new(AtomicBool::new(false));
     jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
+    paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), paused.clone());
 
     let mut stats = ScanStats::default();
     let mut last_emit = SystemTime::now();
-    let tree = walk_tree(&root, 0, &cancel, &mut stats, &app, &job_id, &mut last_emit)?;
+    let tree = walk_tree(&root, 0, &cancel, &paused, &mut stats, &app, &job_id, &mut last_emit)?;
 
     stats.files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
     stats.files.truncate(20);
@@ -415,6 +438,7 @@ pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String
     largest_folders.truncate(20);
 
     jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
+    paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
     Ok(AnalysisData {
         drive_id, scanned_bytes: stats.bytes, scanned_items: stats.items, tree: vec![tree],
         largest_files: stats.files, largest_folders,
@@ -443,6 +467,17 @@ pub fn analyze_cancel(job_id: String) -> Result<bool> {
     let guard = jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?;
     if let Some(flag) = guard.get(&job_id) {
         flag.store(true, Ordering::Relaxed);
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+pub fn analyze_pause(job_id: String, pause: bool) -> Result<bool> {
+    let guard = paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?;
+    if let Some(flag) = guard.get(&job_id) {
+        flag.store(pause, Ordering::Relaxed);
         Ok(true)
     } else {
         Ok(false)
