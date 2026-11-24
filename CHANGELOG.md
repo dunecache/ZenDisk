@@ -5,6 +5,12 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching away from Disk Analysis and back no longer cancels and restarts the
+  scan. The native job id is stable per drive and only an explicit rescan
+  creates a new job.
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

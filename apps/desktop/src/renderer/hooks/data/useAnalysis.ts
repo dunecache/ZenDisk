@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { nativeApi } from "@/lib/native/client";
 import { withFallback } from "@/lib/native/withFallback";
@@ -11,22 +11,39 @@ export const analysisKeys = {
   byDrive: (driveId: string) => ["analysis", driveId] as const,
 };
 
+// Revision survives component unmount, so switching tabs cannot mint a new job
+// id (and therefore cannot start a fresh native scan) for the same drive.
+const scanRevisions = new Map<string, number>();
+const revisionFor = (driveId: string) => scanRevisions.get(driveId) ?? 0;
+
+function jobFor(driveId: string, revision: number) {
+  const slug = driveId.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 32);
+  return `scan-${slug}-${revision}`;
+}
+
 /** Runs a cancellable native scan and maps its payload into the view model. */
 export function useAnalysis(driveId: string) {
-  const [revision, setRevision] = useState(0);
+  const [revision, setRevision] = useState(() => revisionFor(driveId));
   const [paused, setPaused] = useState(false);
-  const jobId = useMemo(
-    () => `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${revision}`,
-    [driveId, revision],
-  );
+  const jobId = useMemo(() => jobFor(driveId, revision), [driveId, revision]);
 
-  // Cancel the previous native scan when the drive changes, the user rescans,
-  // or this screen unmounts; otherwise full-drive scans accumulate.
-  useEffect(() => () => { void nativeApi.disk.cancel(jobId); }, [jobId]);
+  // Restore the persisted revision when the drive changes in place.
+  useEffect(() => { setRevision(revisionFor(driveId)); }, [driveId]);
+
+  // Cancel only the *previous* job when it is replaced (drive change or an
+  // explicit rescan). Leaving the tab must not cancel a running native scan.
+  const previousJob = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = previousJob.current;
+    if (previous && previous !== jobId) void nativeApi.disk.cancel(previous);
+    previousJob.current = jobId;
+  }, [jobId]);
+
   useEffect(() => { setPaused(false); }, [jobId]);
 
   const query = useQuery({
-    // A new job id starts a fresh scan instead of replaying a cached result.
+    // A stable key keeps the cached result across tab switches; only an
+    // explicit rescan changes the job id and starts new work.
     queryKey: [...analysisKeys.byDrive(driveId), jobId] as const,
     queryFn: () =>
       withFallback<AnalysisData>(
@@ -50,11 +67,14 @@ export function useAnalysis(driveId: string) {
       ),
     enabled: Boolean(driveId),
     staleTime: 30_000,
-    // Retrying a full-drive scan doubles the work and delays real errors.
     retry: false,
   });
 
-  const rescan = useCallback(() => setRevision((value) => value + 1), []);
+  const rescan = useCallback(() => {
+    const next = revisionFor(driveId) + 1;
+    scanRevisions.set(driveId, next);
+    setRevision(next);
+  }, [driveId]);
 
   const setScanPaused = useCallback(async (value: boolean) => {
     try {

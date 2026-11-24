@@ -300,7 +300,7 @@ pub fn decide_directory(
         Some(dir) if dir.generation == ctx.generation && dir.state == "scanned" => {
             DecisionOutcome::new(Decision::SkipUnchanged, "checkpoint current", "checkpoint")
         }
-        Some(dir) => DecisionOutcome::new(
+        Some(_) => DecisionOutcome::new(
             Decision::VerifyMetadata,
             "directory not current",
             "checkpoint",
@@ -413,10 +413,13 @@ fn identity_of(metadata: &fs::Metadata) -> Option<String> {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
+        // `volume_serial_number` / `file_index` are still unstable. Stable
+        // attributes plus creation time identify a file for move detection.
         Some(format!(
-            "{}:{}",
-            metadata.volume_serial_number(),
-            metadata.file_index()
+            "{}:{}:{}",
+            metadata.file_attributes(),
+            metadata.creation_time(),
+            metadata.len()
         ))
     }
     #[cfg(not(any(unix, windows)))]
@@ -902,7 +905,7 @@ impl Store {
         let generation = state.generation + 1;
         let tx = self
             .conn
-            .transaction()
+            .unchecked_transaction()
             .map_err(|e| format!("begin generation: {e}"))?;
         tx.execute(
             "UPDATE roots SET generation=?2, status='partial', budget_exceeded=0,
@@ -1105,7 +1108,7 @@ impl Store {
         }
         let tx = self
             .conn
-            .transaction()
+            .unchecked_transaction()
             .map_err(|e| format!("upsert tx: {e}"))?;
         {
             let mut stmt = tx
@@ -1198,7 +1201,7 @@ impl Store {
         }
         let tx = self
             .conn
-            .transaction()
+            .unchecked_transaction()
             .map_err(|e| format!("queue tx: {e}"))?;
         {
             let mut stmt = tx
@@ -1912,7 +1915,7 @@ impl Store {
         let mut report = ChangeReport::default();
         let tx = self
             .conn
-            .transaction()
+            .unchecked_transaction()
             .map_err(|e| format!("changes tx: {e}"))?;
         for event in events {
             let path = event.path.trim();
@@ -1997,7 +2000,7 @@ impl Store {
     fn reset_root(&self, root: &str) -> Result<(), String> {
         let tx = self
             .conn
-            .transaction()
+            .unchecked_transaction()
             .map_err(|e| format!("reset tx: {e}"))?;
         for table in [
             "files",
@@ -2036,7 +2039,7 @@ fn collect_nodes(node: &SnapshotNode, out: &mut Vec<SnapshotNode>) {
     }
 }
 
-fn observed_from(root: &str, parent: &str, path: &Path, metadata: &fs::Metadata) -> ObservedEntry {
+fn observed_from(parent: &str, path: &Path, metadata: &fs::Metadata) -> ObservedEntry {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -2224,7 +2227,7 @@ pub fn discover(
                         continue;
                     }
                 };
-                let observed = observed_from(&root_key, &dir, &path, &metadata);
+                let observed = observed_from(&dir, &path, &metadata);
                 if let Some(reason) = exclusion_reason(&observed, &config) {
                     counts.ignored += 1;
                     let kind = if observed.kind == EntryKind::Link {
@@ -2238,7 +2241,7 @@ pub fn discover(
                 match observed.kind {
                     EntryKind::Directory => {
                         child_count += 1;
-                        match decide_directory(child_checkpoints.get(&observed.path), &ctx) {
+                        match decide_directory(child_checkpoints.get(&observed.path), &ctx).decision {
                             Decision::Ignore | Decision::SkipUnchanged => {
                                 store.mark_dir(
                                     &root_key,
@@ -2457,7 +2460,7 @@ fn process_item(
     }
     if item.kind == "metadata_verify" {
         let metadata = fs::symlink_metadata(&row.path).map_err(|e| format!("verify: {e}"))?;
-        let observed = observed_from(&row.root, &row.parent, Path::new(&row.path), &metadata);
+        let observed = observed_from(&row.parent, Path::new(&row.path), &metadata);
         let changed = row.size_bytes != observed.size_bytes
             || row.modified_ns != observed.modified_ns
             || match (&row.identity, &observed.identity) {
