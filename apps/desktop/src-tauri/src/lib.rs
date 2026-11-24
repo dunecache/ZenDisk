@@ -1,4 +1,5 @@
 mod commands;
+mod fs_index;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,6 +24,15 @@ pub fn run() {
             commands::automation_set,
             commands::operations_history,
             commands::reports_summary,
+            commands::index_status,
+            commands::index_discover,
+            commands::index_process,
+            commands::index_reconcile,
+            commands::index_apply_changes,
+            commands::index_query,
+            commands::index_stats,
+            commands::index_config,
+            commands::index_reset,
         ])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

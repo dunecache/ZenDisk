@@ -28,6 +28,7 @@ ZenDisk/
 │   └── ui/                       # Design-system primitives (@zendisk/ui)
 ├── docs/
 │   ├── tauri-v2-migration.md     # Runtime migration plan and decisions
+│   ├── filesystem-index.md       # Incremental index audit, architecture, and decision rules
 │   ├── updater-key-rotation.md   # Bridge-release procedure for future key changes
 │   └── release-policy.md         # Channels, uninstall behavior, changelog practice
 ├── CHANGELOG.md
@@ -67,6 +68,7 @@ The Tauri CLI has no Android/Termux binary. On those hosts use `pnpm dev:web` an
 - `src-tauri/icons/` contains generated PNGs and `icon.ico`, derived from the brand mark in `src/renderer/assets/icon.png`.
 - Signed OTA updates use `latest.json` published on the rolling `windows-latest` pre-release; the public key is in `tauri.conf.json`, the private key only in the `TAURI_SIGNING_PRIVATE_KEY` secret and its password in `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Rotation procedure: `docs/updater-key-rotation.md`.
 - Windows 10/11 are supported. Windows 7 is not achievable with current Rust/WebView2 — see `docs/tauri-v2-migration.md`.
+- Filesystem discovery is incremental and persistent: `fs_index.sqlite` stores canonical paths, cheap metadata, analysis state, and directory checkpoints, with a durable work queue. A second scan of an unchanged drive performs no filesystem walk. Decision rules and the audit of the original scanner are in `docs/filesystem-index.md`.
 
 ## CI
 

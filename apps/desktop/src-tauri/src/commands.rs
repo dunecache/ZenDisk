@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use sysinfo::{Disks, System};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::fs_index;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandError {
@@ -481,40 +483,77 @@ pub(crate) fn walk_tree(
 
 pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String) -> Result<AnalysisData> {
     let root = safe_path(&drive_id)?;
+    let root_key = root.to_string_lossy().into_owned();
     let cancel = Arc::new(AtomicBool::new(false));
     let paused = Arc::new(AtomicBool::new(false));
     jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
     paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), paused.clone());
 
-    let mut stats = ScanStats::default();
-    let mut last_emit = SystemTime::now();
-    let tree = walk_tree(&root, 0, &cancel, &paused, &mut stats, Some(&app), &job_id, &mut last_emit)?;
+    // Index-first: a current root is answered from SQLite with no traversal.
+    // An incomplete root runs one bounded, resumable discovery pass and the UI
+    // payload is rebuilt from indexed rows, so no discovery work is discarded.
+    let analysis = (|| -> Result<AnalysisData> {
+        let store = index_store(&app)?;
+        let report = fs_index::discover(&store, &root_key, &job_id, false, &cancel, &paused, Some(&app))
+            .map_err(index_error)?;
+        // Analysis is its own resumable operation. A bounded slice keeps a
+        // single scan responsive; remaining work stays queued for later passes.
+        let _ = fs_index::process_work(&store, &root_key, 200, &cancel, Some(&app))
+            .map_err(index_error)?;
+        store.refresh_queue_counts(&root_key).map_err(index_error)?;
+        let snapshot = fs_index::snapshot(&store, &root_key).map_err(index_error)?;
+        Ok(AnalysisData {
+            drive_id,
+            scanned_bytes: snapshot.scanned_bytes,
+            scanned_items: snapshot.scanned_items as usize,
+            tree: snapshot.tree.into_iter().map(snapshot_node).collect(),
+            largest_files: snapshot.largest_files.into_iter().map(snapshot_file).collect(),
+            largest_folders: snapshot.largest_folders.into_iter().map(snapshot_file).collect(),
+            is_partial: snapshot.is_partial,
+            scan_state: if snapshot.state == "fresh" { "completed".into() } else { snapshot.state },
+            skipped_locations: snapshot.skipped_locations.into_iter().map(|skip| SkippedLocation {
+                path: skip.path,
+                reason: skip.reason,
+                kind: match skip.kind.as_str() {
+                    "unreadable" => SkipKind::Unreadable,
+                    "excluded" => SkipKind::Excluded,
+                    "reparse" => SkipKind::Reparse,
+                    _ => SkipKind::Budget,
+                },
+            }).collect(),
+            skip_counts: SkipCounts {
+                unreadable: snapshot.skip_counts.unreadable,
+                excluded: snapshot.skip_counts.excluded,
+                reparse: snapshot.skip_counts.reparse,
+                budget: snapshot.skip_counts.budget,
+            },
+            budget_exceeded: snapshot.budget_exceeded || report.budget_exceeded,
+        })
+    })();
 
-    stats.files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
-    stats.files.truncate(20);
-    let mut largest_folders: Vec<FileEntry> = tree.children.iter().map(|n| FileEntry {
-        id: n.id.clone(), name: n.name.clone(), path: n.path.clone(), size_bytes: n.size_bytes, modified_at: now(),
-    }).collect();
-    largest_folders.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
-    largest_folders.truncate(20);
+    if let Ok(mut guard) = jobs().lock() { guard.remove(&job_id); }
+    if let Ok(mut guard) = paused_jobs().lock() { guard.remove(&job_id); }
+    analysis
+}
 
-    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
-    paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.remove(&job_id);
-    Ok(AnalysisData {
-        drive_id, scanned_bytes: stats.bytes, scanned_items: stats.items, tree: vec![tree],
-        largest_files: stats.files, largest_folders,
-        is_partial: stats.partial,
-        scan_state: if stats.cancelled {
-            "cancelled".into()
-        } else if stats.partial {
-            "partial".into()
-        } else {
-            "completed".into()
-        },
-        skipped_locations: stats.skipped,
-        skip_counts: stats.counts,
-        budget_exceeded: stats.budget_exceeded,
-    })
+fn snapshot_node(node: fs_index::SnapshotNode) -> TreeNode {
+    TreeNode {
+        id: node.path.clone(),
+        name: node.name,
+        size_bytes: node.size_bytes,
+        path: node.path,
+        children: node.children.into_iter().map(snapshot_node).collect(),
+    }
+}
+
+fn snapshot_file(file: fs_index::SnapshotFile) -> FileEntry {
+    FileEntry {
+        id: new_id(),
+        name: file.name,
+        path: file.path,
+        size_bytes: file.size_bytes,
+        modified_at: file.modified_at,
+    }
 }
 
 #[tauri::command]
@@ -856,8 +895,16 @@ fn ensure_history_table(conn: &Connection) -> Result<()> {
     .map_err(|e| CommandError::new("db", e.to_string(), true))
 }
 
-fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
+fn open_history(app: &AppHandle) -> Result<Connection> {
     let conn = Connection::open(db_path(app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    // Headless and UI processes can write history concurrently.
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA synchronous=NORMAL;")
+        .map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    Ok(conn)
+}
+
+fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
+    let conn = open_history(app)?;
     ensure_history_table(&conn)?;
     conn.execute(
         "INSERT INTO operations (id, kind, title, at, completed, failed, skipped, total, reclaimed, recoverable) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -868,7 +915,7 @@ fn write_history(app: &AppHandle, record: &OperationRecord) -> Result<()> {
 
 #[tauri::command]
 pub fn operations_history(app: AppHandle) -> Result<Vec<OperationRecord>> {
-    let conn = Connection::open(db_path(&app)?).map_err(|e| CommandError::new("db", e.to_string(), true))?;
+    let conn = open_history(&app)?;
     // A fresh install has no history yet: create the table before reading it so
     // the first launch returns an empty list instead of a "no such table" error.
     ensure_history_table(&conn)?;
@@ -889,6 +936,202 @@ pub fn operations_history(app: AppHandle) -> Result<Vec<OperationRecord>> {
 #[tauri::command]
 pub fn reports_summary(app: AppHandle) -> Result<Vec<OperationRecord>> {
     operations_history(app)
+}
+
+// ---------------------------------------------------------------------------
+// Incremental filesystem index commands
+// ---------------------------------------------------------------------------
+
+fn index_error(error: String) -> CommandError {
+    CommandError::new("db", error, true)
+}
+
+fn index_db_path(app: &AppHandle) -> Result<PathBuf> {
+    let base = app.path().app_data_dir().map_err(|e| CommandError::new("path", e.to_string(), true))?;
+    fs::create_dir_all(&base).map_err(|e| CommandError::new("io", e.to_string(), true))?;
+    Ok(base.join("fs_index.sqlite"))
+}
+
+fn index_store(app: &AppHandle) -> Result<fs_index::Store> {
+    fs_index::Store::open(&index_db_path(app)?).map_err(index_error)
+}
+
+#[tauri::command]
+pub async fn index_status(app: AppHandle, root: String) -> Result<Option<fs_index::IndexStatus>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root_path = safe_path(&root)?;
+        let store = index_store(&app)?;
+        fs_index::reopen_check(&store, &root_path.to_string_lossy()).map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+pub(crate) fn index_discover_impl(
+    app: AppHandle,
+    root: String,
+    job_id: String,
+    force: bool,
+) -> Result<fs_index::ScanReport> {
+    let root_path = safe_path(&root)?;
+    let root_key = root_path.to_string_lossy().into_owned();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let paused = Arc::new(AtomicBool::new(false));
+    jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), cancel.clone());
+    paused_jobs().lock().map_err(|_| CommandError::new("internal", "Job lock poisoned", false))?.insert(job_id.clone(), paused.clone());
+
+    let result = (|| -> Result<fs_index::ScanReport> {
+        let store = index_store(&app)?;
+        fs_index::discover(&store, &root_key, &job_id, force, &cancel, &paused, Some(&app))
+            .map_err(index_error)
+    })();
+
+    if let Ok(mut guard) = jobs().lock() { guard.remove(&job_id); }
+    if let Ok(mut guard) = paused_jobs().lock() { guard.remove(&job_id); }
+    result
+}
+
+#[tauri::command]
+pub async fn index_discover(
+    app: AppHandle,
+    root: String,
+    job_id: String,
+    force: Option<bool>,
+) -> Result<fs_index::ScanReport> {
+    tauri::async_runtime::spawn_blocking(move || index_discover_impl(app, root, job_id, force.unwrap_or(false)))
+        .await
+        .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_process(
+    app: AppHandle,
+    root: String,
+    limit: Option<usize>,
+) -> Result<fs_index::WorkReport> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root_path = safe_path(&root)?;
+        let root_key = root_path.to_string_lossy().into_owned();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let store = index_store(&app)?;
+        fs_index::process_work(&store, &root_key, limit.unwrap_or(200).min(5_000), &cancel, Some(&app))
+            .map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_reconcile(app: AppHandle, root: String) -> Result<fs_index::ReconcileReport> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = index_store(&app)?;
+        let job_id = new_id();
+        fs_index::reconcile(&store, &root, &job_id, Some(&app)).map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_apply_changes(
+    app: AppHandle,
+    events: Vec<fs_index::ChangeEvent>,
+) -> Result<fs_index::ChangeReport> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = index_store(&app)?;
+        // Events carry absolute paths; derive each root from its nearest drive
+        // root so a single batch can cover multiple volumes.
+        let mut report = fs_index::ChangeReport::default();
+        let mut roots: Vec<String> = Vec::new();
+        for event in &events {
+            // `ancestors().last()` is the filesystem root (`C:\` or `/`).
+            let root = Path::new(&event.path)
+                .ancestors()
+                .last()
+                .unwrap_or_else(|| Path::new(&event.path))
+                .to_string_lossy()
+                .into_owned();
+            if !roots.contains(&root) {
+                roots.push(root);
+            }
+        }
+        if roots.is_empty() {
+            return Ok(report);
+        }
+        for root in roots {
+            let one = fs_index::apply_changes(&store, &root, &events).map_err(index_error)?;
+            report.accepted += one.accepted;
+            report.overflow |= one.overflow;
+        }
+        Ok(report)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_query(
+    app: AppHandle,
+    root: String,
+    parent: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<Vec<fs_index::IndexedFileDto>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root_path = safe_path(&root)?;
+        let store = index_store(&app)?;
+        store
+            .query_files(
+                &root_path.to_string_lossy(),
+                parent.as_deref(),
+                limit.unwrap_or(200).clamp(1, 1_000),
+                offset.unwrap_or(0).max(0),
+            )
+            .map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_stats(app: AppHandle, root: String) -> Result<fs_index::IndexStats> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root_path = safe_path(&root)?;
+        let store = index_store(&app)?;
+        store.stats(&root_path.to_string_lossy()).map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_config(
+    app: AppHandle,
+    config: Option<serde_json::Value>,
+) -> Result<fs_index::IndexConfig> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = index_store(&app)?;
+        if let Some(value) = config {
+            let parsed: fs_index::IndexConfig = serde_json::from_value(value)
+                .map_err(|e| CommandError::new("invalidConfig", e.to_string(), false))?;
+            store.set_config(&parsed).map_err(index_error)?;
+            Ok(parsed)
+        } else {
+            store.config().map_err(index_error)
+        }
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
+}
+
+#[tauri::command]
+pub async fn index_reset(app: AppHandle, root: String) -> Result<bool> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let store = index_store(&app)?;
+        fs_index::index_reset(&store, &root).map_err(index_error)
+    })
+    .await
+    .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
 #[cfg(test)]

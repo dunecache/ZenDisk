@@ -12,9 +12,10 @@ import {
   SkeletonCard,
 } from "@/components/data-display";
 import { formatBytes } from "@/lib/formatters";
-import { useAnalysis, useOverview, useScanProgress } from "@/hooks";
+import { useAnalysis, useFsIndex, useOverview, useScanProgress } from "@/hooks";
 import { DriveSelector } from "./components/scan/DriveSelector";
 import { ScanStatus } from "./components/scan/ScanStatus";
+import { IndexStatusPanel } from "./components";
 import { TreemapView } from "./components/treemap/TreemapView";
 import { FileTypeBreakdown } from "./components/breakdown/FileTypeBreakdown";
 import { LargestFiles } from "./components/largest-files/LargestFiles";
@@ -28,6 +29,7 @@ export function DiskAnalysisScreen() {
   const { data: overview } = useOverview();
   const { data, isLoading, isError, jobId, rescan, pause, resume, cancel, paused } = useAnalysis(driveId);
   const progress = useScanProgress(jobId);
+  const fsIndex = useFsIndex(driveId);
   const active = isLoading;
   const scanState = active ? (paused ? "paused" : "scanning") : (data?.scanState ?? "idle");
 
@@ -87,6 +89,20 @@ export function DiskAnalysisScreen() {
               onPause={pause}
               onResume={resume}
               onCancel={() => void cancel()}
+            />
+          </Section>
+
+          <Section
+            title="Filesystem index"
+            description="Persistent, incrementally updated knowledge of this drive. Unchanged files are skipped without being read again."
+          >
+            <IndexStatusPanel
+              status={fsIndex.status}
+              stats={fsIndex.stats}
+              progress={fsIndex.progress}
+              onUpdate={() => void fsIndex.rescan()}
+              onFullRescan={() => void fsIndex.rescan(true)}
+              onReconcile={() => void fsIndex.reconcile()}
             />
           </Section>
 

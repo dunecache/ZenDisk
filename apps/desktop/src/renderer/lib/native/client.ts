@@ -102,6 +102,115 @@ export interface NativeProgress {
   scannedItems: number;
 }
 
+export interface NativeIndexCounts {
+  discovered: number;
+  new: number;
+  unchanged: number;
+  metadataVerified: number;
+  analyzeScheduled: number;
+  analyzed: number;
+  ignored: number;
+  deferred: number;
+  failed: number;
+  moved: number;
+  missing: number;
+}
+
+export interface NativeIndexStatus {
+  root: string;
+  generation: number;
+  status: string;
+  fresh: boolean;
+  pendingDirs: number;
+  pendingWork: number;
+  lastScanAt: string | null;
+  budgetExceeded: boolean;
+  needsReconciliation: boolean;
+  counts: NativeIndexCounts;
+}
+
+export interface NativeIndexStats {
+  totalFiles: number;
+  totalBytes: number;
+  pendingWork: number;
+  byStatus: Record<string, number>;
+  byKind: Record<string, number>;
+}
+
+export interface NativeIndexConfig {
+  excludedNames: string[];
+  excludedSegments: string[];
+  excludedExtensions: string[];
+  maxItemsPerRun: number;
+  maxMillisPerRun: number;
+  batchSize: number;
+  progressIntervalMs: number;
+  metadataRecheckSecs: number;
+  maxRetryAttempts: number;
+  retryBaseSecs: number;
+  maxContentBytes: number;
+  partialFingerprintBytes: number;
+  fingerprintUnreliableTimestamps: boolean;
+  expensiveExtensions: string[];
+}
+
+export interface NativeScanReport {
+  root: string;
+  generation: number;
+  state: string;
+  fresh: boolean;
+  budgetExceeded: boolean;
+  counts: NativeIndexCounts;
+}
+
+export interface NativeWorkReport {
+  processed: number;
+  ok: number;
+  failed: number;
+  reanalysed: number;
+  fingerprintReused: number;
+}
+
+export interface NativeReconcileReport {
+  moved: number;
+  missing: number;
+  dirsMissing: number;
+}
+
+export interface NativeChangeEvent {
+  path: string;
+  kind: "created" | "modified" | "renamed" | "deleted" | "overflow";
+  oldPath?: string | null;
+  at: string;
+}
+
+export interface NativeIndexedFile {
+  path: string;
+  name: string;
+  extension: string;
+  contentKind: string;
+  sizeBytes: number;
+  modifiedAt: string;
+  analysisStatus: string;
+  analysisVersion: number;
+  classification: string;
+  metadataVerifiedAt: string;
+  contentAnalyzedAt: string | null;
+  fingerprint: string | null;
+  generation: number;
+  state: string;
+}
+
+export interface NativeIndexProgress {
+  jobId: string;
+  root: string;
+  generation: number;
+  phase: string;
+  counts: NativeIndexCounts;
+  budgetExceeded: boolean;
+  pendingWork?: number;
+}
+
 export const nativeApi = {
   app: {
     version: () => getVersion(),
@@ -152,6 +261,42 @@ export const nativeApi = {
         root: pathSchema.parse(root),
         jobId: jobIdSchema.parse(jobId),
       }),
+  },
+  index: {
+    status: (root: string) =>
+      invoke<NativeIndexStatus | null>("index_status", { root: pathSchema.parse(root) }),
+    discover: (root: string, jobId: string, force = false) =>
+      invoke<NativeScanReport>("index_discover", {
+        root: pathSchema.parse(root),
+        jobId: jobIdSchema.parse(jobId),
+        force,
+      }),
+    process: (root: string, limit = 200) =>
+      invoke<NativeWorkReport>("index_process", { root: pathSchema.parse(root), limit }),
+    reconcile: (root: string) =>
+      invoke<NativeReconcileReport>("index_reconcile", { root: pathSchema.parse(root) }),
+    applyChanges: (events: NativeChangeEvent[]) =>
+      invoke<{ accepted: number; overflow: boolean }>("index_apply_changes", {
+        events: events.map((event) => ({
+          ...event,
+          path: pathSchema.parse(event.path),
+          oldPath: event.oldPath ? pathSchema.parse(event.oldPath) : null,
+        })),
+      }),
+    query: (root: string, parent?: string, limit = 200, offset = 0) =>
+      invoke<NativeIndexedFile[]>("index_query", {
+        root: pathSchema.parse(root),
+        parent: parent ? pathSchema.parse(parent) : null,
+        limit,
+        offset,
+      }),
+    stats: (root: string) =>
+      invoke<NativeIndexStats>("index_stats", { root: pathSchema.parse(root) }),
+    config: (config?: NativeIndexConfig) =>
+      invoke<NativeIndexConfig>("index_config", { config: config ?? null }),
+    reset: (root: string) => invoke<boolean>("index_reset", { root: pathSchema.parse(root) }),
+    onProgress: (handler: (progress: NativeIndexProgress) => void) =>
+      listen<NativeIndexProgress>("zendisk://index-progress", (event) => handler(event.payload)),
   },
   operations: {
     history: () => invoke<OperationRecord[]>("operations_history"),

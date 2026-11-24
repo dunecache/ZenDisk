@@ -220,6 +220,25 @@ Hardware-verified (manual, Windows 10/11 with real drives):
 - [ ] SMART and permission paths verified; the "Not available" fallback confirmed where a drive reports nothing
 - [ ] Update check, download, signature verification, install, and relaunch verified against a newer CI build
 
+### 6.8 Incremental filesystem index ✅ (implemented; CI verification pending)
+
+Goal: stop rediscovering and re-analysing unchanged files. Full audit, root causes, and decision rules are in `docs/filesystem-index.md`.
+
+- [x] Audit: primary root cause was time-based `FileEntry.id`s and no persistent record — identical paths could never be matched across scans
+- [x] SQLite `fs_index.sqlite` (WAL + busy timeout) with canonical-path records, filesystem identity, discovery/verification/analysis timestamps, analysis version, classification, and fingerprint
+- [x] Three-level change detection: cached knowledge → cheap metadata → partial content fingerprint; no default full-file hashing
+- [x] Four independently resumable operations: discovery, metadata indexing, content analysis, reconciliation
+- [x] Directory checkpoints instead of one global cursor; forced rescan and watcher overflow re-queue directories individually
+- [x] Persistent, deduplicated work queue with priorities, exponential backoff, terminal failures, and crash recovery of `running` items
+- [x] Watcher ingestion seam (`index_apply_changes`), overflow flag, and periodic reconciliation fallback; native `notify` binding deferred until the dependency is validated on the Windows CI host
+- [x] Configurable exclusions and scheduling (`index_config`); large/opaque files classified and deferred, never silently ignored
+- [x] `disk_analyze` is index-first: a current root is answered from SQLite with zero filesystem reads; budgets bound one resumable pass rather than discarding progress
+- [x] Command surface: `index_status`, `index_discover`, `index_process`, `index_reconcile`, `index_apply_changes`, `index_query`, `index_stats`, `index_config`, `index_reset`
+- [x] Renderer shows aggregated index counters and progress in Disk Analysis; no per-file IPC and no index data in React state
+- [x] Rust tests: decision levels, unreliable timestamps, version invalidation, work-queue dedup/backoff/recovery, exclusions, restart, warm-pass zero work, only-modified-file reanalysis, ignored benchmark
+- [ ] CI: compile + run `cargo test` on `windows-latest`; record cold vs warm benchmark
+- [ ] Hardware: verify large-drive scan, restart/resume, watcher overflow reconciliation
+
 ### Native capability matrix
 
 Proposed command names; update the state column as work lands. States: `stub` (facade exists but throws) → `implemented` → `CI-verified` → `hardware-verified`; `unsupported` = explicit "Not available" response.
@@ -238,6 +257,7 @@ Proposed command names; update the state column as work lands. States: `stub` (f
 | Maintenance | `system.metrics`, `disk.health`, `startup_list`, `apps_list` | Custom commands; unsupported where no API | Metrics/history wired; other sources honestly unsupported |
 | Automation | `automation_list`, `automation_set` | Custom commands; Task Scheduler not wired | Partial |
 | Reports | `reports_summary` | Custom command over persisted history | Aggregated from real history; storage snapshots not collected |
+| Filesystem index | `index_status`, `index_discover`, `index_process`, `index_reconcile`, `index_apply_changes`, `index_query`, `index_stats`, `index_config`, `index_reset` | Custom commands + SQLite `fs_index.sqlite` (WAL) | Implemented; CI verification pending |
 | License/help | — | None; external-link opening not connected | UI only |
 
 ---
@@ -371,6 +391,7 @@ Earlier Neutralinojs entries are kept as history and marked superseded by the Ta
 | 2026-11-23 | Added a rolling `windows-stable` release: CI publishes to it only on `workflow_dispatch` with `channel=stable`, alongside the beta channel, and generates a channel-specific `latest.json` whose asset URL points at that release. The updater endpoint now reads `windows-stable/latest.json`. | A versioned stable tag is a static snapshot and would freeze updates. The rolling channel keeps stable installs updatable while ordinary `main` pushes remain beta-only, so a stable publish stays a deliberate act. |
 | 2026-11-24 | Published stable `v0.1.63` from CI run `45360470095` (commit `11ee2d8`) with accurate partial-results reporting; `windows-stable` remains the live update feed. | Versioned tags are download snapshots; installed clients follow the rolling channel. |
 | 2026-11-24 | Reworked partial-results reporting: skips are classified (`unreadable`, `excluded`, `reparse`, `budget`), all skips are counted while only 25 samples are retained, `isPartial` is set only for genuine read failures, protected names include `WindowsApps`, OS errors are included in reasons, and the UI shows the true count with an expandable path list. CI `--smoke` now runs the real walker. | The old UI printed the 20-sample cap as the real count, counted cancellations/budget as partial results, and hid the underlying error. The report is now accurate and distinguishes exclusions from failures. |
+| 2026-11-24 | Replaced "walk the whole drive on every rescan" with a persistent, incrementally updated filesystem index (`fs_index.sqlite`, directory checkpoints, three-level change detection, durable deduplicated work queue, watcher-agnostic change ingestion, reconciliation). `disk_analyze` is now index-first and returns a stored snapshot on a warm root. Scan budgets remain as configurable per-pass bounds, not lossy limits. Full audit in `docs/filesystem-index.md`. | The previous scanner generated fresh time-based ids per file and kept no records, so an unchanged second scan repeated every metadata read. A warm pass now performs zero discovery work; analysis is a separate, resumable operation. Native watcher binding is deferred because `notify` is not an available offline dependency and must be validated on the Windows CI host. |
 | 2026-11-24 | Published stable `v0.1.60` from CI run `45342607410` (commit `03170aa`) with functional pause/resume; `windows-stable` remains the live update feed. | Versioned tags are download snapshots; installed clients follow the rolling channel. |
 | 2026-11-24 | Added real pause/resume for disk scans: `analyze_pause` flips a per-job flag, the walker sleeps on that flag without consuming the time budget, and Pause/Resume buttons are now wired in the UI. Cancel works while paused. | The buttons were rendered with no handler and no native command, which claimed a capability the app did not have. Pausing extends the budget deadline so a paused scan is not silently truncated. |
 | 2026-11-23 | Published stable `v0.1.57` from CI run `45281931130` (commit `58507d5`) with the optimized scan; `windows-stable` remains the live update feed. | Versioned tags are download snapshots; installed clients follow the rolling channel. |
