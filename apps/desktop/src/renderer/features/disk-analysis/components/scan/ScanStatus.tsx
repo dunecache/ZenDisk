@@ -2,12 +2,13 @@ import { Pause, Play, RotateCw, Square } from "lucide-react";
 import { Button } from "@/components/ui";
 import { InlineAlert, StatusBadge } from "@/components/data-display";
 import { formatBytes } from "@/lib/formatters";
-import type { ScanSkippedLocation, ScanState } from "@/types";
+import type { ScanSkippedLocation, ScanState, SkipCounts } from "@/types";
 
 export interface ScanStatusProps {
   state: ScanState;
   isPartial?: boolean;
   budgetExceeded?: boolean;
+  skipCounts?: SkipCounts;
   skippedLocations?: ScanSkippedLocation[];
   progress?: { scannedBytes: number; scannedItems: number } | null;
   onScan?: () => void;
@@ -16,10 +17,13 @@ export interface ScanStatusProps {
   onCancel?: () => void;
 }
 
+const emptyCounts: SkipCounts = { unreadable: 0, excluded: 0, reparse: 0, budget: 0 };
+
 export function ScanStatus({
   state,
   isPartial = false,
   budgetExceeded = false,
+  skipCounts = emptyCounts,
   skippedLocations = [],
   progress,
   onScan,
@@ -29,6 +33,7 @@ export function ScanStatus({
 }: ScanStatusProps) {
   const running = state === "discovering" || state === "scanning" || state === "paused";
   const finished = state === "idle" || state === "completed" || state === "cancelled" || state === "failed" || state === "partial";
+  const unreadableSamples = skippedLocations.filter((location) => location.kind === "unreadable");
 
   return (
     <div className="flex flex-col gap-[var(--space-2)]">
@@ -56,11 +61,13 @@ export function ScanStatus({
           </Button>
         )}
       </div>
+
       {progress && (
         <p className="text-[length:var(--text-small)] text-muted tabular-nums">
           Scanned {new Intl.NumberFormat().format(progress.scannedItems)} items · {formatBytes(progress.scannedBytes)}
         </p>
       )}
+
       {budgetExceeded && (
         <InlineAlert variant="info" title="Scan limited">
           The scan stopped at its item/time limit. Results cover the locations
@@ -68,29 +75,44 @@ export function ScanStatus({
           you need a wider view.
         </InlineAlert>
       )}
-      {isPartial && (skippedLocations.length > 0 || !budgetExceeded) && (
+
+      {isPartial && (
         <InlineAlert variant="warning" title="Partial results">
-          {skippedLocations.length > 0 ? (
+          {skipCounts.unreadable > 0 ? (
             <>
-              {skippedLocations.length} location{skippedLocations.length === 1 ? "" : "s"} could not be
-              read. Results cover the rest of the drive.
-              <ul className="mt-[var(--space-2)] flex flex-col gap-[var(--space-1)]">
-                {skippedLocations.slice(0, 3).map((location) => (
-                  <li key={location.path} className="break-all text-mono text-[length:var(--text-caption)]">
-                    {location.path} — {location.reason}
-                  </li>
-                ))}
-              </ul>
-              {skippedLocations.length > 3 && (
-                <span className="text-[length:var(--text-caption)]">
-                  and {skippedLocations.length - 3} more
-                </span>
+              {new Intl.NumberFormat().format(skipCounts.unreadable)} location
+              {skipCounts.unreadable === 1 ? "" : "s"} could not be read. Results
+              cover the rest of the drive.
+              {unreadableSamples.length > 0 && (
+                <details className="mt-[var(--space-2)] text-[length:var(--text-small)]">
+                  <summary className="cursor-pointer text-muted">Show sampled paths</summary>
+                  <ul className="mt-[var(--space-2)] flex flex-col gap-[var(--space-1)]">
+                    {unreadableSamples.map((location) => (
+                      <li key={location.path} className="break-all text-mono text-[length:var(--text-caption)]">
+                        {location.path} — {location.reason}
+                      </li>
+                    ))}
+                  </ul>
+                  {skipCounts.unreadable > unreadableSamples.length && (
+                    <p className="mt-[var(--space-1)] text-[length:var(--text-caption)] text-muted">
+                      Showing {unreadableSamples.length} of {skipCounts.unreadable} unreadable locations.
+                    </p>
+                  )}
+                </details>
               )}
             </>
           ) : (
             "Some locations could not be read. Results shown so far may not represent the whole drive."
           )}
         </InlineAlert>
+      )}
+
+      {(skipCounts.excluded > 0 || skipCounts.reparse > 0) && (
+        <p className="text-[length:var(--text-small)] text-muted">
+          Excluded by design: {new Intl.NumberFormat().format(skipCounts.excluded)} protected folder
+          {skipCounts.excluded === 1 ? "" : "s"}, {new Intl.NumberFormat().format(skipCounts.reparse)} link
+          {skipCounts.reparse === 1 ? "" : "s"}.
+        </p>
       )}
     </div>
   );

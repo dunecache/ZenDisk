@@ -5,6 +5,14 @@ All notable changes to ZenDisk are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Partial results now report the true number of unreadable locations instead of
+  the 20-sample cap. Skips are classified as unreadable, excluded, link, or
+  budget; only genuine read failures mark a scan partial. Protected folders
+  such as `WindowsApps` are excluded by design, and the UI shows the real count
+  with an expandable list of sampled paths and the underlying OS error.
+
 ### Notes
 
 - Upgrade, OTA, SMART, and permission paths remain unverified on hardware.

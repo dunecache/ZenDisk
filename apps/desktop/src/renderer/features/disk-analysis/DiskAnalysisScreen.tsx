@@ -80,6 +80,7 @@ export function DiskAnalysisScreen() {
               state={scanState}
               isPartial={data?.isPartial}
               budgetExceeded={data?.budgetExceeded}
+              skipCounts={data?.skipCounts}
               skippedLocations={data?.skippedLocations}
               progress={active ? progress : null}
               onScan={rescan}
@@ -107,7 +108,7 @@ export function DiskAnalysisScreen() {
                   <MetricCard
                     label="Scanned"
                     value={formatBytes(data.scannedBytes)}
-                    description={`${new Intl.NumberFormat().format(data.scannedItems)} items`}
+                    description={`${new Intl.NumberFormat().format(data.scannedItems)} items · scoped scan`}
                   />
                 </div>
                 <ProgressBar

@@ -72,6 +72,7 @@ pub struct AnalysisData {
     pub is_partial: bool,
     pub scan_state: String,
     pub skipped_locations: Vec<SkippedLocation>,
+    pub skip_counts: SkipCounts,
     pub budget_exceeded: bool,
 }
 
@@ -82,11 +83,30 @@ pub struct CleanupCandidate {
     pub files: Vec<FileEntry>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SkipKind {
+    Unreadable,
+    Excluded,
+    Reparse,
+    Budget,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkipCounts {
+    pub unreadable: usize,
+    pub excluded: usize,
+    pub reparse: usize,
+    pub budget: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkippedLocation {
     pub path: String,
     pub reason: String,
+    pub kind: SkipKind,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -248,13 +268,14 @@ pub async fn disk_list() -> Result<Vec<DiskInfo>> {
         .map_err(|e| CommandError::new("internal", e.to_string(), true))?
 }
 
-struct ScanStats {
+pub(crate) struct ScanStats {
     bytes: u64,
-    items: usize,
+    pub(crate) items: usize,
     partial: bool,
     cancelled: bool,
     files: Vec<FileEntry>,
     skipped: Vec<SkippedLocation>,
+    pub(crate) counts: SkipCounts,
     budget_exceeded: bool,
     deadline: Instant,
 }
@@ -268,18 +289,33 @@ impl Default for ScanStats {
             cancelled: false,
             files: Vec::new(),
             skipped: Vec::new(),
+            counts: SkipCounts::default(),
             budget_exceeded: false,
             deadline: Instant::now() + SCAN_TIME_LIMIT,
         }
     }
 }
 
-fn mark_partial(stats: &mut ScanStats, path: &Path, reason: &str) {
-    stats.partial = true;
-    if stats.skipped.len() < 20 {
+/// Records every skip in the counters, but keeps only a bounded sample for the
+/// UI. Only genuine read failures make a scan "partial"; exclusions, links,
+/// cancellation, and the budget have their own honest states.
+fn record_skip(stats: &mut ScanStats, path: &Path, reason: impl Into<String>, kind: SkipKind) {
+    match kind {
+        SkipKind::Unreadable => {
+            stats.partial = true;
+            stats.counts.unreadable += 1;
+        }
+        SkipKind::Excluded => stats.counts.excluded += 1,
+        SkipKind::Reparse => stats.counts.reparse += 1,
+        SkipKind::Budget => stats.counts.budget += 1,
+    }
+    // 25 samples are enough for the UI's expandable list; the true total is
+    // always reported through `counts`.
+    if stats.skipped.len() < 25 {
         stats.skipped.push(SkippedLocation {
             path: path.to_string_lossy().into_owned(),
-            reason: reason.to_string(),
+            reason: reason.into(),
+            kind,
         });
     }
 }
@@ -317,19 +353,22 @@ fn is_system_location(name: &str) -> bool {
             | "msocache"
             | "config.msi"
             | "documents and settings"
+            | "windowsapps"
+            | "$winreagent"
+            | "installer"
     )
 }
 
 const SCAN_ITEM_LIMIT: usize = 200_000;
 const SCAN_TIME_LIMIT: Duration = Duration::from_secs(25);
 
-fn walk_tree(
+pub(crate) fn walk_tree(
     path: &Path,
     depth: usize,
     cancel: &AtomicBool,
     paused: &AtomicBool,
     stats: &mut ScanStats,
-    app: &AppHandle,
+    app: Option<&AppHandle>,
     job_id: &str,
     last_emit: &mut SystemTime,
 ) -> Result<TreeNode> {
@@ -342,15 +381,19 @@ fn walk_tree(
     };
     let entries = match fs::read_dir(path) {
         Ok(entries) => entries,
-        Err(_) => {
-            mark_partial(stats, path, "Access denied or folder unreadable");
+        Err(error) => {
+            record_skip(
+                stats,
+                path,
+                format!("Folder unreadable: {error}"),
+                SkipKind::Unreadable,
+            );
             return Ok(node);
         }
     };
     for entry in entries.flatten() {
         if cancel.load(Ordering::Relaxed) {
             stats.cancelled = true;
-            stats.partial = true;
             break;
         }
         // Pausing suspends the worker without consuming the time budget.
@@ -359,7 +402,6 @@ fn walk_tree(
             while paused.load(Ordering::Relaxed) {
                 if cancel.load(Ordering::Relaxed) {
                     stats.cancelled = true;
-                    stats.partial = true;
                     break;
                 }
                 std::thread::sleep(Duration::from_millis(50));
@@ -370,25 +412,42 @@ fn walk_tree(
         // Hard budget keeps a full drive scan bounded and responsive.
         if stats.items >= SCAN_ITEM_LIMIT || stats.deadline.elapsed() >= SCAN_TIME_LIMIT {
             stats.budget_exceeded = true;
-            stats.partial = true;
+            record_skip(stats, path, "Scan budget reached", SkipKind::Budget);
             break;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
         if is_system_location(&name) {
+            record_skip(stats, &entry.path(), "Excluded system location", SkipKind::Excluded);
             continue;
         }
         let child_path = entry.path();
         let metadata = match entry.metadata() {
             Ok(m) => m,
-            Err(_) => {
-                mark_partial(stats, &child_path, "Metadata unavailable");
+            Err(error) => {
+                // A link whose metadata cannot be resolved is still a link;
+                // symlink_metadata does not traverse it.
+                if fs::symlink_metadata(&child_path)
+                    .map(|link| is_link(&link))
+                    .unwrap_or(false)
+                {
+                    record_skip(stats, &child_path, "Link skipped", SkipKind::Reparse);
+                } else {
+                    record_skip(
+                        stats,
+                        &child_path,
+                        format!("Metadata unavailable: {error}"),
+                        SkipKind::Unreadable,
+                    );
+                }
                 continue;
             }
         };
+        if is_link(&metadata) {
+            record_skip(stats, &child_path, "Link skipped", SkipKind::Reparse);
+            continue;
+        }
         stats.items += 1;
         if metadata.is_dir() {
-            // Reparse points are skipped by design, not a partial result.
-            if is_link(&metadata) { continue; }
             if depth < 3 {
                 let child = walk_tree(&child_path, depth + 1, cancel, paused, stats, app, job_id, last_emit)?;
                 node.size_bytes += child.size_bytes;
@@ -408,9 +467,11 @@ fn walk_tree(
         }
         if let Ok(elapsed) = last_emit.elapsed() {
             if elapsed.as_millis() >= 200 {
-                let _ = app.emit("zendisk://scan-progress", ProgressEvent {
-                    job_id: job_id.to_string(), scanned_bytes: stats.bytes, scanned_items: stats.items,
-                });
+                if let Some(app) = app {
+                    let _ = app.emit("zendisk://scan-progress", ProgressEvent {
+                        job_id: job_id.to_string(), scanned_bytes: stats.bytes, scanned_items: stats.items,
+                    });
+                }
                 *last_emit = SystemTime::now();
             }
         }
@@ -427,7 +488,7 @@ pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String
 
     let mut stats = ScanStats::default();
     let mut last_emit = SystemTime::now();
-    let tree = walk_tree(&root, 0, &cancel, &paused, &mut stats, &app, &job_id, &mut last_emit)?;
+    let tree = walk_tree(&root, 0, &cancel, &paused, &mut stats, Some(&app), &job_id, &mut last_emit)?;
 
     stats.files.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
     stats.files.truncate(20);
@@ -451,6 +512,7 @@ pub(crate) fn disk_analyze_impl(app: AppHandle, drive_id: String, job_id: String
             "completed".into()
         },
         skipped_locations: stats.skipped,
+        skip_counts: stats.counts,
         budget_exceeded: stats.budget_exceeded,
     })
 }
@@ -838,8 +900,48 @@ mod tests {
         assert!(is_system_location("System Volume Information"));
         assert!(is_system_location("$Recycle.Bin"));
         assert!(is_system_location("$WINDOWS.~BT"));
+        assert!(is_system_location("WindowsApps"));
         assert!(!is_system_location("Documents"));
         assert!(!is_system_location("Program Files"));
+    }
+
+    #[test]
+    fn counts_all_skips_beyond_the_sample_cap() {
+        let mut stats = ScanStats::default();
+        for index in 0..30 {
+            record_skip(&mut stats, Path::new("/drive/file"), format!("error {index}"), SkipKind::Unreadable);
+        }
+        assert_eq!(stats.counts.unreadable, 30);
+        assert_eq!(stats.skipped.len(), 25);
+        assert!(stats.partial);
+    }
+
+    #[test]
+    fn exclusions_do_not_make_a_scan_partial() {
+        let mut stats = ScanStats::default();
+        record_skip(&mut stats, Path::new("/drive/WindowsApps"), "Excluded", SkipKind::Excluded);
+        assert_eq!(stats.counts.excluded, 1);
+        assert!(!stats.partial);
+    }
+
+    #[test]
+    fn walker_classifies_excluded_folders() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("WindowsApps")).unwrap();
+        fs::create_dir(root.path().join("Documents")).unwrap();
+        fs::write(root.path().join("file.txt"), b"x").unwrap();
+
+        let cancel = AtomicBool::new(false);
+        let paused = AtomicBool::new(false);
+        let mut stats = ScanStats::default();
+        let mut last_emit = SystemTime::now();
+        let tree = walk_tree(root.path(), 0, &cancel, &paused, &mut stats, None, "test", &mut last_emit).unwrap();
+
+        assert_eq!(stats.counts.excluded, 1);
+        assert_eq!(stats.counts.unreadable, 0);
+        assert!(!stats.partial);
+        assert_eq!(tree.children.len(), 1);
+        assert_eq!(tree.children[0].name, "Documents");
     }
 
     #[test]

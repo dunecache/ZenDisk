@@ -56,10 +56,23 @@ pub fn smoke() -> std::result::Result<(), String> {
     let digest_b = commands::full_digest(&b).map_err(|e| e.message)?;
     let metrics = commands::system_metrics_impl().map_err(|e| e.message)?;
     let candidates = commands::cleanup_candidates_impl().map_err(|e| e.message)?;
+
+    // Exercise the real tree walker on the temp directory. This gives CI
+    // coverage of scan completion and skip classification without an AppHandle.
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let paused = std::sync::atomic::AtomicBool::new(false);
+    let mut stats = commands::ScanStats::default();
+    let mut last_emit = SystemTime::now();
+    let _ = commands::walk_tree(&root, 0, &cancel, &paused, &mut stats, None, "smoke", &mut last_emit)
+        .map_err(|e| e.message)?;
+
     let report = serde_json::json!({
         "filesListed": list.len(),
         "previewFiles": preview.len(),
         "candidateGroups": candidates.len(),
+        "scanItems": stats.items,
+        "scanUnreadable": stats.counts.unreadable,
+        "scanExcluded": stats.counts.excluded,
         "hashesMatch": digest_a == digest_b,
         "metrics": metrics.len(),
         "tempRoot": PathBuf::from(&root).to_string_lossy(),

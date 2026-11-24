@@ -10,9 +10,19 @@ export type ScanState =
   | "failed"
   | "partial";
 
+export type ScanSkipKind = "unreadable" | "excluded" | "reparse" | "budget";
+
+export interface SkipCounts {
+  unreadable: number;
+  excluded: number;
+  reparse: number;
+  budget: number;
+}
+
 export interface ScanSkippedLocation {
   path: string;
   reason: string;
+  kind: ScanSkipKind;
 }
 
 export interface FileTypeStat {
@@ -44,6 +54,8 @@ export interface AnalysisData {
   tree: TreeNode[];
   /** Locations the scanner could not read; empty for a complete scan. */
   skippedLocations: ScanSkippedLocation[];
+  /** Counts for every skip, including those beyond the sampled locations. */
+  skipCounts: SkipCounts;
   /** True when the item/time budget stopped the scan before the whole drive. */
   budgetExceeded: boolean;
 }

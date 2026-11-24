@@ -48,6 +48,7 @@ export function analysisForDrive(driveId: string): AnalysisData {
     })),
     tree,
     skippedLocations: [],
+    skipCounts: { unreadable: 0, excluded: 0, reparse: 0, budget: 0 },
     budgetExceeded: false,
   };
 }
